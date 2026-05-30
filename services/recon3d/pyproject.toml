@@ -13,6 +13,7 @@ dependencies = [
     "trimesh",
     "matplotlib",
     "scipy",
+    "pillow-heif",   # convert iPhone HEIC photos -> JPG for --images-dir
     "huggingface-hub",
     "tqdm",
 ]

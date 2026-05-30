@@ -18,6 +18,31 @@ import time
 from pathlib import Path
 
 
+def _convert_heic(images_dir: str) -> None:
+    """Convert any .heic/.heif in the folder to .jpg (idempotent). No-op if there
+    are none, so JPG/PNG folders just pass through untouched."""
+    d = Path(images_dir)
+    heics = [p for p in d.iterdir() if p.suffix.lower() in (".heic", ".heif")]
+    if not heics:
+        return
+    try:
+        import pillow_heif
+        from PIL import Image
+        pillow_heif.register_heif_opener()
+        n = 0
+        for p in heics:
+            jpg = p.with_suffix(".jpg")
+            if not jpg.exists():
+                Image.open(p).convert("RGB").save(jpg, "JPEG", quality=95)
+                n += 1
+        print(f"[run] converted {n} HEIC -> JPG in {images_dir}")
+    except Exception as e:
+        raise SystemExit(
+            f"Found {len(heics)} HEIC files but couldn't convert them ({e}). "
+            f"Install pillow-heif:  pip install pillow-heif"
+        )
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="OpenEyes 3D reconstruction (VGGT / VGGT-Omega)")
     ap.add_argument("--clips-dir", default="data/clips", help="folder of .mp4 clips")
@@ -65,7 +90,9 @@ def main() -> None:
 
     t0 = time.time()
     if args.images_dir:
-        # Verification path: feed images straight in (no video frame extraction).
+        # Feed images straight in (no video frame extraction). iPhone HEICs are
+        # converted to JPG automatically; already-JPG/PNG folders are used as-is.
+        _convert_heic(args.images_dir)
         exts = ("*.jpg", "*.jpeg", "*.png", "*.JPG", "*.PNG")
         image_paths = sorted(str(p) for e in exts for p in Path(args.images_dir).glob(e))
         image_paths = image_paths[:args.max_frames]
