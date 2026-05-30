@@ -21,6 +21,9 @@ from pathlib import Path
 def main() -> None:
     ap = argparse.ArgumentParser(description="OpenEyes 3D reconstruction (VGGT / VGGT-Omega)")
     ap.add_argument("--clips-dir", default="data/clips", help="folder of .mp4 clips")
+    ap.add_argument("--clip", action="append", default=None,
+                    help="specific clip path(s); repeatable. Use ONE clip for the most "
+                         "reliable result (dense overlap). Overrides --clips-dir.")
     ap.add_argument("--out", default="out", help="output folder")
     ap.add_argument("--backend", choices=["vggt", "omega"], default="omega")
     ap.add_argument("--checkpoint", default=None,
@@ -30,6 +33,8 @@ def main() -> None:
     ap.add_argument("--conf-percentile", type=float, default=50.0,
                     help="drop points below this confidence percentile")
     ap.add_argument("--no-cameras", action="store_true", help="omit camera frustums in GLB")
+    ap.add_argument("--no-viz", action="store_true",
+                    help="skip the diagnostic visualizations in out/viz/")
     args = ap.parse_args()
 
     out = Path(args.out)
@@ -39,10 +44,11 @@ def main() -> None:
     from core.frames import extract_frames
 
     t0 = time.time()
-    specs = extract_frames(args.clips_dir, frames_dir, max_frames=args.max_frames)
+    specs = extract_frames(args.clips_dir, frames_dir, max_frames=args.max_frames,
+                           clips=args.clip)
     image_paths = [s.path for s in specs]
     if not image_paths:
-        raise SystemExit("No frames extracted — check --clips-dir.")
+        raise SystemExit("No frames extracted — check --clips-dir / --clip.")
 
     # 2) frames -> predictions (torch, GPU)
     from core.reconstruct import reconstruct
@@ -53,6 +59,7 @@ def main() -> None:
         checkpoint=args.checkpoint,
         resolution=args.resolution,
         conf_percentile=args.conf_percentile,
+        viz_dir=None if args.no_viz else str(out / "viz"),
     )
 
     # 3) predictions -> GLB

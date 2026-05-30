@@ -32,23 +32,30 @@ def _sharpness(gray: np.ndarray) -> float:
 
 
 def extract_frames(
-    clips_dir: str | os.PathLike,
+    clips_dir: str | os.PathLike | None,
     out_dir: str | os.PathLike,
     max_frames: int = 60,
     min_sharpness: float = 0.0,
+    clips: list[str] | None = None,
 ) -> list[FrameSpec]:
-    """Sample up to ``max_frames`` sharp frames across all clips in ``clips_dir``.
+    """Sample up to ``max_frames`` sharp frames across the chosen clips.
 
-    Frames are written as JPEGs to ``out_dir`` and returned as FrameSpec records.
-    The per-clip budget is split evenly across the clips found.
+    Pass ``clips`` (explicit .mp4 paths) for a single-clip / hand-picked run, or
+    ``clips_dir`` to use every .mp4 in a folder. Frames are written as JPEGs to
+    ``out_dir``. The per-clip budget is split evenly across the clips used — so a
+    single clip gets all ``max_frames`` (dense overlap = the most reliable result).
     """
-    clips_dir = Path(clips_dir)
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    clips = sorted(p for p in clips_dir.glob("*.mp4"))
+    if clips:
+        clips = sorted(Path(c) for c in clips)
+    else:
+        if clips_dir is None:
+            raise ValueError("Provide either clips_dir or an explicit clips list.")
+        clips = sorted(Path(clips_dir).glob("*.mp4"))
     if not clips:
-        raise FileNotFoundError(f"No .mp4 clips found in {clips_dir}")
+        raise FileNotFoundError(f"No .mp4 clips found ({clips_dir or clips})")
 
     per_clip = max(1, max_frames // len(clips))
     specs: list[FrameSpec] = []

@@ -151,6 +151,7 @@ def reconstruct(
     resolution: int = 512,
     conf_percentile: float = 50.0,
     device: str | None = None,
+    viz_dir: str | None = None,
 ) -> Reconstruction:
     """Run inference and return a normalized, confidence-filtered point cloud."""
     import torch
@@ -174,27 +175,31 @@ def reconstruct(
     extr, intr = _decode_cameras(backend, preds["pose_enc"], (H, W), preds)
 
     # World points: base VGGT may provide them; otherwise unproject depth.
+    # Keep the per-frame depth/conf maps (S,H,W) around for diagnostics.
+    depth_map = None
     if backend != "omega" and "world_points" in preds:
         world = _drop_batch(_np(preds["world_points"]), 4)                # (S,H,W,3)
-        conf = _drop_batch(_np(preds["world_points_conf"]), 3) if "world_points_conf" in preds else None
+        conf_map = _drop_batch(_np(preds["world_points_conf"]), 3) if "world_points_conf" in preds else None
     else:
         # Omega depth comes back as (1, S, H, W, 1) — squeeze batch + channel
         # singletons down to (S, H, W). Safe here because S >> 1.
-        depth = np.squeeze(_np(preds["depth"]))
-        if depth.ndim == 4:                       # any non-singleton extra dim left
-            depth = depth[..., 0]
-        world = _unproject(depth, extr, intr)
-        conf = np.squeeze(_np(preds["depth_conf"])) if "depth_conf" in preds else None
+        depth_map = np.squeeze(_np(preds["depth"]))
+        if depth_map.ndim == 4:                   # any non-singleton extra dim left
+            depth_map = depth_map[..., 0]
+        world = _unproject(depth_map, extr, intr)
+        conf_map = np.squeeze(_np(preds["depth_conf"])) if "depth_conf" in preds else None
 
     pts = world.reshape(-1, 3)
     cols = rgb.reshape(-1, 3)
-    if conf is not None:
-        conf = conf.reshape(-1)
-        keep = conf >= np.percentile(conf, conf_percentile)
-        pts, cols = pts[keep], cols[keep]
+    keep = np.isfinite(pts).all(axis=1)
+    if conf_map is not None:
+        keep &= conf_map.reshape(-1) >= np.percentile(conf_map, conf_percentile)
+    pts, cols = pts[keep], cols[keep]
 
-    finite = np.isfinite(pts).all(axis=1)
-    pts, cols = pts[finite], cols[finite]
+    if viz_dir:
+        from .diagnostics import dump
+        dump(viz_dir, rgb=rgb, depth=depth_map, conf=conf_map, extr=extr, intr=intr,
+             points=pts, colors=cols, conf_percentile=conf_percentile)
 
     print(f"[reconstruct] {len(pts):,} points, {len(extr)} cameras, image {H}x{W}")
     return Reconstruction(
