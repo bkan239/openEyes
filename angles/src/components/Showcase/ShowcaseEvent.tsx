@@ -59,16 +59,24 @@ export function ShowcaseEvent() {
   const toggleShowcaseFloatingVideosHidden = useApp((s) => s.toggleShowcaseFloatingVideosHidden);
 
   const [mediaLoaded, setMediaLoaded] = useState(false);
-  const surfaceReady = mediaLoaded && showcaseMapReady;
+  const [splashTimedOut, setSplashTimedOut] = useState(false);
+  const surfaceReady = mediaLoaded && (showcaseMapReady || splashTimedOut);
 
   const introTimers = useRef<number[]>([]);
 
   useLayoutEffect(() => {
     setUiMode("showcase");
     setShowcaseMapReady(false);
+    setSplashTimedOut(false);
     setMediaItems([]);
     setShowcaseIntroLocked(true);
   }, [setMediaItems, setShowcaseIntroLocked, setShowcaseMapReady, setUiMode]);
+
+  useEffect(() => {
+    if (!mediaLoaded) return;
+    const t = window.setTimeout(() => setSplashTimedOut(true), 2500);
+    return () => clearTimeout(t);
+  }, [mediaLoaded]);
 
   useEffect(() => {
     return () => {

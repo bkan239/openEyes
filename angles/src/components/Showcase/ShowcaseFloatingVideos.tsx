@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperti
 import { useApp } from "@/state/store";
 import type { UserMedia } from "@/lib/types";
 import { clipDurationMs, clipOffsetSecondsFromWall, DEFAULT_CLIP_SECONDS } from "@/lib/livePlayback";
-import { loadPrettiMedia, mapPinThumbnailUrl, PRETTI_STORY_ID } from "@/lib/demo";
+import { mapPinThumbnailUrl, PRETTI_STORY_ID } from "@/lib/demo";
 import { cameraAccentColor } from "@/lib/cameraColors";
 import {
   computeSpawnRect,
@@ -10,23 +10,6 @@ import {
   panelHeightPx,
   showcasePanelOuterHeight
 } from "@/components/Showcase/spawnPanelRect";
-
-const blobCache: Record<string, string> = {};
-const blobPromiseCache: Record<string, Promise<string>> = {};
-
-async function toBlobURL(src: string): Promise<string> {
-  if (blobCache[src]) return blobCache[src];
-  if (!blobPromiseCache[src]) {
-    blobPromiseCache[src] = fetch(src)
-      .then((resp) => resp.blob())
-      .then((blob) => {
-        const url = URL.createObjectURL(blob);
-        blobCache[src] = url;
-        return url;
-      });
-  }
-  return blobPromiseCache[src];
-}
 
 const VIDEO_EXT = /\.(mp4|mov|m4v|webm)(\?|$)/i;
 
@@ -134,32 +117,8 @@ export function ShowcaseFloatingVideos() {
     return map;
   }, [prettiOverlayItems, storyMediaCache]);
 
-  const [blobURLs, setBlobURLs] = useState<Record<string, string>>({});
-  const [blobFailed, setBlobFailed] = useState<Record<string, boolean>>({});
   /** Stays below demo HUD (~94–96) so timeline / map chrome stay clickable */
   const floatZPeak = useRef(50);
-
-  useEffect(() => {
-    let cancel = false;
-    loadPrettiMedia()
-      .then((items) => {
-        items
-          .filter((m) => VIDEO_EXT.test(m.file_url))
-          .forEach((m) => {
-            toBlobURL(m.file_url)
-              .then((url) => {
-                if (!cancel) setBlobURLs((prev) => ({ ...prev, [m.id]: url }));
-              })
-              .catch(() => {
-                if (!cancel) setBlobFailed((prev) => ({ ...prev, [m.id]: true }));
-              });
-          });
-      })
-      .catch(() => {});
-    return () => {
-      cancel = true;
-    };
-  }, []);
 
   const openCameraIdsKey = selectedCameraIds.filter((id) => showcaseOpen[id]).join("|");
   const openIds = selectedCameraIds.filter((id) => showcaseOpen[id]);
@@ -240,7 +199,7 @@ export function ShowcaseFloatingVideos() {
         const rect = showcasePanelRect[id];
         if (!m || !rect) return null;
         const isVideo = VIDEO_EXT.test(m.file_url);
-        const videoSrc = isVideo ? blobURLs[id] ?? (blobFailed[id] ? m.file_url : null) : null;
+        const videoSrc = isVideo ? m.file_url : null;
 
         return (
           <FloatingPanel
@@ -309,6 +268,7 @@ function FloatingPanel(props: {
 
   const [dimInactive, setDimInactive] = useState(false);
   const dimRef = useRef(false);
+  const [frameReady, setFrameReady] = useState(false);
 
   const panelRef = useRef<HTMLDivElement | null>(null);
   /** Pin spawn scales this layer — holds accent ring, chrome, and video so React opacity/z-index updates stay on the outer shell */
@@ -393,6 +353,22 @@ function FloatingPanel(props: {
   };
 
   useEffect(() => {
+    setFrameReady(false);
+    const v = videoRef.current;
+    if (!v || !props.isVideo || !props.videoSrc) return;
+
+    const markReady = () => setFrameReady(true);
+    v.addEventListener("loadeddata", markReady);
+    v.addEventListener("canplay", markReady);
+    if (v.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) markReady();
+
+    return () => {
+      v.removeEventListener("loadeddata", markReady);
+      v.removeEventListener("canplay", markReady);
+    };
+  }, [props.isVideo, props.videoSrc]);
+
+  useEffect(() => {
     let raf = 0;
     const { m } = props;
     const tick = () => {
@@ -437,8 +413,9 @@ function FloatingPanel(props: {
 
       const durVid = Number.isFinite(v.duration) && v.duration > 0 ? v.duration : DEFAULT_CLIP_SECONDS;
       const drift = Math.abs(v.currentTime - Math.min(Math.max(offsetSec, 0), durVid));
+      const canDecode = v.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA;
 
-      if (inRange) {
+      if (inRange && canDecode) {
         if ((!s.livePlaying && drift > 0.035) || drift > 0.85) {
           try {
             v.currentTime = Math.max(0, Math.min(offsetSecWall, durVid));
@@ -684,21 +661,39 @@ function FloatingPanel(props: {
             {props.isVideo ? (!props.videoSrc ? "Caching…" : "") : "Photo"}
           </div>
         ) : (
-          <video
-            ref={videoRef}
-            src={props.videoSrc}
-            muted
-            playsInline
-            preload="auto"
-            crossOrigin="anonymous"
-            poster={thumbUrl || undefined}
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "contain",
-              display: "block"
-            }}
-          />
+          <>
+            {thumbUrl && (
+              <div
+                aria-hidden
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  backgroundImage: `linear-gradient(rgba(0,0,0,0.2), rgba(0,0,0,0.45)), url(${thumbUrl})`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                  opacity: frameReady ? 0 : 1,
+                  transition: "opacity 0.15s ease",
+                  pointerEvents: "none"
+                }}
+              />
+            )}
+            <video
+              ref={videoRef}
+              src={props.videoSrc}
+              muted
+              playsInline
+              preload="auto"
+              poster={thumbUrl || undefined}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "contain",
+                display: "block",
+                opacity: frameReady ? 1 : 0,
+                transition: "opacity 0.15s ease"
+              }}
+            />
+          </>
         )}
 
         {( ["nw", "ne", "sw", "se"] as const).map((corner) => (
