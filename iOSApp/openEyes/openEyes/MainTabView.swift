@@ -26,22 +26,22 @@ struct MainTabView: View {
     @StateObject private var draftStore = CaptureDraftStore()
 
     var body: some View {
-        VStack(spacing: 0) {
-            Group {
-                switch selectedTab {
-                case .discover:
-                    DiscoverView { target in
-                        mapFocusTarget = target
-                        selectedTab = .map
-                    }
-                case .capture:
-                    CaptureScreenView(draftStore: draftStore)
-                case .map:
-                    MapScreenView(focusTarget: $mapFocusTarget)
+        Group {
+            switch selectedTab {
+            case .discover:
+                DiscoverView { target in
+                    mapFocusTarget = target
+                    selectedTab = .map
                 }
+            case .capture:
+                CaptureScreenView(draftStore: draftStore)
+            case .map:
+                MapScreenView(focusTarget: $mapFocusTarget)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Ink.bg)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
             HStack(spacing: 0) {
                 ForEach(Tab.allCases, id: \.self) { tab in
                     tabButton(for: tab)
@@ -49,13 +49,12 @@ struct MainTabView: View {
             }
             .padding(.horizontal, 8)
             .padding(.top, 8)
-            .padding(.bottom, 4)
+            .padding(.bottom, 6)
             .background(Ink.surface)
             .overlay(alignment: .top) {
                 Rectangle().fill(Ink.border).frame(height: 1)
             }
         }
-        .background(Ink.bg.ignoresSafeArea())
         .preferredColorScheme(.light)
     }
 

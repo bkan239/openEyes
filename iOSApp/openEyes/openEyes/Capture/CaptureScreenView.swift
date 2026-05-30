@@ -50,129 +50,130 @@ struct CaptureCameraPanel: View {
     @State private var isPressingShutter = false
 
     var body: some View {
-        GeometryReader { geometry in
-            ZStack {
-                if camera.isCameraAuthorized && camera.isSessionConfigured {
-                    CapturePreviewView(session: camera.session) { scale, state in
-                        if state == .began {
-                            camera.setZoomFactor(camera.currentZoomFactor * scale)
-                        }
+        ZStack {
+            if camera.isCameraAuthorized && camera.isSessionConfigured {
+                CapturePreviewView(session: camera.session) { scale, state in
+                    if state == .began {
+                        camera.setZoomFactor(camera.currentZoomFactor * scale)
                     }
-                    .ignoresSafeArea()
-                } else {
-                    VStack(spacing: 16) {
-                        Image(systemName: "camera.fill")
-                            .font(.system(size: 44))
+                }
+                .ignoresSafeArea()
+            } else {
+                VStack(spacing: 16) {
+                    Image(systemName: "camera.fill")
+                        .font(.system(size: 44))
+                        .foregroundStyle(Ink.primaryOnInk)
+                    Text(camera.permissionMessage)
+                        .font(InkFont.body(15))
+                        .foregroundStyle(Ink.onInkMuted)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
+                    if !camera.isCameraAuthorized {
+                        Button("Enable Camera") { camera.requestPermissions() }
+                            .font(InkFont.headline(14))
+                            .foregroundStyle(Ink.ink)
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 10)
+                            .background(Ink.primaryOnInk)
+                            .clipShape(Capsule())
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Ink.ink)
+            }
+
+            LinearGradient(
+                colors: [Ink.ink.opacity(0.72), .clear, Ink.ink.opacity(0.82)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .allowsHitTesting(false)
+            .ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                HStack {
+                    Text("Capture")
+                        .font(InkFont.headline(18))
+                        .foregroundStyle(Ink.onInk)
+                    Spacer()
+                    Button(action: onOpenUploads) {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .font(.system(size: 26))
                             .foregroundStyle(Ink.primaryOnInk)
-                        Text(camera.permissionMessage)
-                            .font(InkFont.body(15))
-                            .foregroundStyle(Ink.onInkMuted)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 32)
-                        if !camera.isCameraAuthorized {
-                            Button("Enable Camera") { camera.requestPermissions() }
-                                .font(InkFont.headline(14))
-                                .foregroundStyle(Ink.ink)
-                                .padding(.horizontal, 18)
-                                .padding(.vertical, 10)
-                                .background(Ink.primaryOnInk)
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+                .padding(.bottom, 12)
+                .background(Ink.ink.opacity(0.55))
+
+                Spacer()
+
+                if camera.isRecording {
+                    Text(camera.recordingDurationLabel)
+                        .font(InkFont.headline(16))
+                        .foregroundStyle(Ink.onInk)
+                        .padding(.bottom, 8)
+                }
+
+                HStack(spacing: 8) {
+                    ForEach(camera.availableLenses) { lens in
+                        Button { camera.selectLens(lens) } label: {
+                            Text(lens.label)
+                                .font(InkFont.caption(13))
+                                .foregroundStyle(camera.selectedLens.id == lens.id ? Ink.ink : Ink.onInk)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(camera.selectedLens.id == lens.id ? Ink.primaryOnInk : Ink.inkSurface.opacity(0.7))
                                 .clipShape(Capsule())
                         }
+                        .buttonStyle(.plain)
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Ink.ink)
                 }
+                .padding(.bottom, 12)
 
-                LinearGradient(
-                    colors: [Ink.ink.opacity(0.5), .clear, Ink.ink.opacity(0.65)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .allowsHitTesting(false)
-
-                VStack {
-                    HStack {
-                        Text("Capture")
-                            .font(InkFont.headline(18))
+                HStack(spacing: 36) {
+                    Button { camera.flipCamera() } label: {
+                        Image(systemName: "arrow.triangle.2.circlepath.camera")
+                            .font(.system(size: 24))
                             .foregroundStyle(Ink.onInk)
-                        Spacer()
-                        Button(action: onOpenUploads) {
-                            Image(systemName: "arrow.up.circle.fill")
-                                .font(.system(size: 26))
-                                .foregroundStyle(Ink.primaryOnInk)
-                        }
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.top, geometry.safeAreaInsets.top + 8)
-
-                    Spacer()
-
-                    if camera.isRecording {
-                        Text(camera.recordingDurationLabel)
-                            .font(InkFont.headline(16))
-                            .foregroundStyle(Ink.onInk)
-                            .padding(.bottom, 8)
                     }
 
-                    HStack(spacing: 8) {
-                        ForEach(camera.availableLenses) { lens in
-                            Button { camera.selectLens(lens) } label: {
-                                Text(lens.label)
-                                    .font(InkFont.caption(13))
-                                    .foregroundStyle(camera.selectedLens.id == lens.id ? Ink.ink : Ink.onInk)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 8)
-                                    .background(camera.selectedLens.id == lens.id ? Ink.primaryOnInk : Ink.inkSurface.opacity(0.7))
-                                    .clipShape(Capsule())
+                    ZStack {
+                        Circle()
+                            .stroke(Ink.onInk, lineWidth: 4)
+                            .frame(width: 78, height: 78)
+                        Circle()
+                            .fill(camera.isRecording ? Color.red : Ink.onInk)
+                            .frame(width: camera.isRecording ? 34 : 62, height: camera.isRecording ? 34 : 62)
+                    }
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { _ in
+                                if !isPressingShutter {
+                                    isPressingShutter = true
+                                    camera.beginVideoCapture()
+                                }
                             }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(.bottom, 12)
-
-                    HStack(spacing: 36) {
-                        Button { camera.flipCamera() } label: {
-                            Image(systemName: "arrow.triangle.2.circlepath.camera")
-                                .font(.system(size: 24))
-                                .foregroundStyle(Ink.onInk)
-                        }
-
-                        ZStack {
-                            Circle()
-                                .stroke(Ink.onInk, lineWidth: 4)
-                                .frame(width: 78, height: 78)
-                            Circle()
-                                .fill(camera.isRecording ? Color.red : Ink.onInk)
-                                .frame(width: camera.isRecording ? 34 : 62, height: camera.isRecording ? 34 : 62)
-                        }
-                        .gesture(
-                            DragGesture(minimumDistance: 0)
-                                .onChanged { _ in
-                                    if !isPressingShutter {
-                                        isPressingShutter = true
-                                        camera.beginVideoCapture()
-                                    }
+                            .onEnded { _ in
+                                isPressingShutter = false
+                                if camera.isRecording {
+                                    camera.endVideoCapture()
+                                } else {
+                                    camera.capturePhotoTap()
                                 }
-                                .onEnded { _ in
-                                    isPressingShutter = false
-                                    if camera.isRecording {
-                                        camera.endVideoCapture()
-                                    } else {
-                                        camera.capturePhotoTap()
-                                    }
-                                }
-                        )
+                            }
+                    )
 
-                        Button {
-                            camera.capturePhotoTap()
-                        } label: {
-                            Image(systemName: "photo")
-                                .font(.system(size: 24))
-                                .foregroundStyle(Ink.onInk)
-                        }
+                    Button {
+                        camera.capturePhotoTap()
+                    } label: {
+                        Image(systemName: "photo")
+                            .font(.system(size: 24))
+                            .foregroundStyle(Ink.onInk)
                     }
-                    .padding(.bottom, geometry.safeAreaInsets.bottom + 24)
                 }
+                .padding(.bottom, 20)
             }
         }
     }

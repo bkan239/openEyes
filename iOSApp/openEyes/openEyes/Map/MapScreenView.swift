@@ -12,50 +12,50 @@ struct MapScreenView: View {
     @State private var selectedPin: MapEventPin?
 
     var body: some View {
-        NavigationStack {
-            ZStack(alignment: .top) {
-                Map(position: $position, selection: $selectedPin) {
-                    ForEach(MockData.mapPins) { pin in
-                        Annotation(pin.title, coordinate: pin.coordinate) {
-                            MapPinView(status: pin.status, isSelected: selectedPin?.id == pin.id)
-                        }
-                        .tag(pin)
-                    }
-                }
-                .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
-                .ignoresSafeArea(edges: .bottom)
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Map")
+                    .font(InkFont.title(28))
+                    .foregroundStyle(Ink.onInk)
+                Text("Corroborated events near you")
+                    .font(InkFont.body(14))
+                    .foregroundStyle(Ink.onInkMuted)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .padding(.bottom, 16)
+            .background(Ink.ink)
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Map")
-                        .font(InkFont.title(28))
-                        .foregroundStyle(Ink.onInk)
-                    Text("Corroborated events near you")
-                        .font(InkFont.body(14))
-                        .foregroundStyle(Ink.onInkMuted)
+            Map(position: $position, selection: $selectedPin) {
+                ForEach(MockData.mapPins) { pin in
+                    Annotation("", coordinate: pin.coordinate, anchor: .bottom) {
+                        MapPinView(status: pin.status, isSelected: selectedPin?.id == pin.id)
+                    }
+                    .tag(pin)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 20)
-                .padding(.vertical, 16)
-                .background(
-                    LinearGradient(colors: [Ink.ink.opacity(0.88), Ink.ink.opacity(0)], startPoint: .top, endPoint: .bottom)
+            }
+            .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
+        }
+        .background(Ink.bg)
+        .sheet(item: $selectedPin) { pin in
+            MapPinDetailSheet(pin: pin)
+        }
+        .onChange(of: focusTarget) { _, target in
+            guard let target else { return }
+            withAnimation {
+                position = .region(
+                    MKCoordinateRegion(
+                        center: target.coordinate,
+                        span: MKCoordinateSpan(latitudeDelta: target.span, longitudeDelta: target.span)
+                    )
                 )
             }
-            .background(Ink.bg)
-            .sheet(item: $selectedPin) { pin in
-                MapPinDetailSheet(pin: pin)
+            selectedPin = MockData.mapPins.first { pin in
+                abs(pin.latitude - target.latitude) < 0.001
+                    && abs(pin.longitude - target.longitude) < 0.001
             }
-            .onChange(of: focusTarget) { _, target in
-                guard let target else { return }
-                withAnimation {
-                    position = .region(
-                        MKCoordinateRegion(
-                            center: target.coordinate,
-                            span: MKCoordinateSpan(latitudeDelta: target.span, longitudeDelta: target.span)
-                        )
-                    )
-                }
-                focusTarget = nil
-            }
+            focusTarget = nil
         }
     }
 }
@@ -68,13 +68,13 @@ struct MapPinView: View {
         ZStack {
             Circle()
                 .fill(status.background)
-                .frame(width: isSelected ? 44 : 36, height: isSelected ? 44 : 36)
-                .overlay(Circle().stroke(status.foreground, lineWidth: 2))
+                .frame(width: isSelected ? 36 : 30, height: isSelected ? 36 : 30)
+                .overlay(Circle().stroke(status.foreground, lineWidth: isSelected ? 2.5 : 2))
             Image(systemName: "video.fill")
-                .font(.system(size: isSelected ? 14 : 12, weight: .semibold))
+                .font(.system(size: isSelected ? 12 : 10, weight: .semibold))
                 .foregroundStyle(status.foreground)
         }
-        .shadow(color: Ink.ink.opacity(0.15), radius: 4, y: 2)
+        .shadow(color: Ink.ink.opacity(0.18), radius: 3, y: 1)
     }
 }
 
