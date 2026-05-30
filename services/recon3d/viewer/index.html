@@ -4,36 +4,129 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>OpenEyes — 3D reconstruction</title>
-  <!-- model-viewer: one tag renders a GLB, orbit/zoom built in. No build step. -->
-  <script type="module"
-    src="https://unpkg.com/@google/model-viewer@4.0.0/dist/model-viewer.min.js"></script>
   <style>
     :root { color-scheme: dark; }
-    body { margin: 0; background: #0a0c10; color: #e6e9ef; font: 14px/1.5 system-ui, sans-serif; }
-    header { padding: 14px 20px; border-bottom: 1px solid #1d2330; }
-    header h1 { margin: 0; font-size: 15px; font-weight: 600; }
-    header p { margin: 2px 0 0; color: #8b94a7; font-size: 12px; }
-    model-viewer { width: 100vw; height: calc(100vh - 58px); background: #0a0c10; }
-    .hint { position: fixed; bottom: 14px; left: 20px; color: #6b7488; font-size: 12px; }
+    body { margin: 0; background: #0a0c10; color: #e6e9ef; font: 13px/1.5 system-ui, sans-serif; overflow: hidden; }
+    #canvas { position: fixed; inset: 0; }
+    #panel {
+      position: fixed; top: 12px; left: 12px; z-index: 10;
+      background: rgba(18,22,30,.85); border: 1px solid #232a38; border-radius: 10px;
+      padding: 12px 14px; width: 250px; backdrop-filter: blur(6px);
+    }
+    #panel h1 { margin: 0 0 2px; font-size: 14px; }
+    #panel p { margin: 0 0 10px; color: #8b94a7; font-size: 11px; }
+    .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 8px 0; }
+    .row label { color: #aab2c3; }
+    input[type=range] { width: 130px; }
+    button { background: #1d2533; color: #e6e9ef; border: 1px solid #2c3548; border-radius: 6px; padding: 5px 8px; cursor: pointer; font-size: 12px; }
+    button:hover { background: #273245; }
+    #status { color: #6b7488; font-size: 11px; margin-top: 8px; }
+    input[type=file] { font-size: 11px; width: 100%; margin-top: 4px; }
   </style>
 </head>
 <body>
-  <header>
+  <canvas id="canvas"></canvas>
+  <div id="panel">
     <h1>OpenEyes — reconstructed scene</h1>
-    <p>26th &amp; Nicollet, Minneapolis — geometry recovered from independent eyewitness angles (VGGT&#8209;Omega)</p>
-  </header>
+    <p>drag to orbit · scroll to zoom · right-drag to pan</p>
+    <div class="row"><label>Point size</label><input id="size" type="range" min="0.2" max="6" step="0.1" value="1.6"></div>
+    <div class="row"><label>Show cameras</label><input id="cams" type="checkbox" checked></div>
+    <div class="row"><button id="bg">Toggle background</button><button id="fit">Recenter</button></div>
+    <input id="file" type="file" accept=".glb,.gltf" />
+    <div id="status">loading…</div>
+  </div>
 
-  <!-- Drop the generated GLB at ../out/scene.glb (served by a static server). -->
-  <model-viewer
-    src="../out/scene.glb"
-    camera-controls
-    touch-action="pan-y"
-    interaction-prompt="none"
-    exposure="1.0"
-    shadow-intensity="0"
-    style="--poster-color: transparent;">
-  </model-viewer>
+  <script type="importmap">
+  { "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }}
+  </script>
 
-  <div class="hint">drag to orbit · scroll to zoom · red markers are camera positions</div>
+  <script type="module">
+    import * as THREE from "three";
+    import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+    import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+
+    // ?src=../out_single/scene.glb  to point at another run; defaults to ../out/scene.glb
+    const SRC = new URLSearchParams(location.search).get("src") || "../out/scene.glb";
+
+    const canvas = document.getElementById("canvas");
+    const status = document.getElementById("status");
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setPixelRatio(devicePixelRatio);
+    const scene = new THREE.Scene();
+    let bg = 0; const bgs = [0x0a0c10, 0x000000, 0x20242c, 0xf0f0f0];
+    scene.background = new THREE.Color(bgs[bg]);
+
+    const camera = new THREE.PerspectiveCamera(55, 1, 0.001, 5000);
+    const controls = new OrbitControls(camera, canvas);
+    controls.enableDamping = true;
+
+    const pointMats = [];      // PointsMaterial instances, for the size slider
+    const cameraNodes = [];    // frustum meshes, for the toggle
+    let modelRoot = null;
+
+    function resize() {
+      const w = innerWidth, h = innerHeight;
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h; camera.updateProjectionMatrix();
+    }
+    addEventListener("resize", resize); resize();
+
+    function frame() {
+      if (!modelRoot) return;
+      const box = new THREE.Box3().setFromObject(modelRoot);
+      const sphere = box.getBoundingSphere(new THREE.Sphere());
+      const r = sphere.radius || 1;
+      controls.target.copy(sphere.center);
+      camera.position.copy(sphere.center).add(new THREE.Vector3(r * 1.6, r * 0.9, r * 1.6));
+      camera.near = r / 100; camera.far = r * 100; camera.updateProjectionMatrix();
+      controls.update();
+    }
+
+    function applySize(v) { for (const m of pointMats) { m.size = v; m.needsUpdate = true; } }
+
+    function load(url, asObjectURL) {
+      status.textContent = "loading…";
+      pointMats.length = 0; cameraNodes.length = 0;
+      if (modelRoot) { scene.remove(modelRoot); modelRoot = null; }
+      new GLTFLoader().load(url, (gltf) => {
+        modelRoot = gltf.scene;
+        let nPoints = 0;
+        modelRoot.traverse((o) => {
+          if (o.isPoints) {
+            const m = new THREE.PointsMaterial({ size: parseFloat(sizeEl.value),
+              vertexColors: true, sizeAttenuation: true });
+            o.material = m; pointMats.push(m);
+            nPoints += o.geometry.attributes.position.count;
+          } else if (o.isMesh) {
+            cameraNodes.push(o);                       // the camera frustums
+            o.material = new THREE.MeshBasicMaterial({ color: 0xff5050 });
+          }
+        });
+        scene.add(modelRoot);
+        frame();
+        status.textContent = `${nPoints.toLocaleString()} points · ${cameraNodes.length} cameras`;
+        if (asObjectURL) URL.revokeObjectURL(url);
+      }, undefined, (e) => { status.textContent = "could not load " + url; console.error(e); });
+    }
+
+    const sizeEl = document.getElementById("size");
+    sizeEl.addEventListener("input", () => applySize(parseFloat(sizeEl.value)));
+    document.getElementById("cams").addEventListener("change", (e) => {
+      for (const c of cameraNodes) c.visible = e.target.checked;
+    });
+    document.getElementById("bg").addEventListener("click", () => {
+      bg = (bg + 1) % bgs.length; scene.background = new THREE.Color(bgs[bg]);
+    });
+    document.getElementById("fit").addEventListener("click", frame);
+    document.getElementById("file").addEventListener("change", (e) => {
+      const f = e.target.files[0]; if (f) load(URL.createObjectURL(f), true);
+    });
+
+    (function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); })();
+    load(SRC, false);
+  </script>
 </body>
 </html>
