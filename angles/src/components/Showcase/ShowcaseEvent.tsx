@@ -1,8 +1,10 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { MapView } from "@/components/Map/MapView";
 import { Timeline } from "@/components/LiveMode/Timeline";
 import { ShowcaseFloatingVideos } from "@/components/Showcase/ShowcaseFloatingVideos";
+import { AnglesPanel } from "@/components/Showcase/AnglesPanel";
 import { useApp } from "@/state/store";
+import { useLivePerspectives } from "@/state/useLivePerspectives";
 import {
   loadPrettiMedia,
   prettiStory,
@@ -20,6 +22,8 @@ const INTRO_DETAIL_MS = 3200;
 /** Incident framing — tight enough that metric scale ticks ≈ single-digit meters on laptop */
 const INTRO_DETAIL_ZOOM = 19.35;
 const RECENTER_MS = 2400;
+/** Open paused on the moment of peak corroboration (4 of 5 angles live, J still to come). */
+const SHOWCASE_OPENING_PLAYHEAD_MS = 48_000;
 
 function flyToIncidentDetail() {
   const { flyTo } = useApp.getState();
@@ -38,9 +42,17 @@ function flyToIncidentDetail() {
   }
 }
 
-export function ShowcaseEvent() {
-  const recenterGradId = `pretti-recenter-grad-${useId().replace(/:/g, "")}`;
+function CenterIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden>
+      <circle cx="12" cy="12" r="3.2" />
+      <path d="M12 2v3M12 19v3M2 12h3M19 12h3" strokeLinecap="round" />
+      <path d="M5 5l2 2M19 5l-2 2M5 19l2-2M19 19l-2-2" strokeLinecap="round" opacity="0.6" />
+    </svg>
+  );
+}
 
+export function ShowcaseEvent() {
   const setUiMode = useApp((s) => s.setUiMode);
   const setShowcaseMapReady = useApp((s) => s.setShowcaseMapReady);
   const showcaseMapReady = useApp((s) => s.showcaseMapReady);
@@ -56,8 +68,23 @@ export function ShowcaseEvent() {
   const setPrettiOverlayItems = useApp((s) => s.setPrettiOverlayItems);
   const setMediaItems = useApp((s) => s.setMediaItems);
   const liveMode = useApp((s) => s.liveMode);
-  const showcaseFloatingVideosHidden = useApp((s) => s.showcaseFloatingVideosHidden);
-  const toggleShowcaseFloatingVideosHidden = useApp((s) => s.toggleShowcaseFloatingVideosHidden);
+  const liveStart = useApp((s) => s.liveStart);
+  const liveEnd = useApp((s) => s.liveEnd);
+  const setLivePlayhead = useApp((s) => s.setLivePlayhead);
+
+  const { perspectives, total, liveCount, trust } = useLivePerspectives();
+
+  // Once live bounds exist, jump (once) to the peak-corroboration opening frame.
+  const seededPlayheadRef = useRef(false);
+  useEffect(() => {
+    if (!liveMode) {
+      seededPlayheadRef.current = false;
+      return;
+    }
+    if (seededPlayheadRef.current || liveEnd - liveStart <= 0) return;
+    seededPlayheadRef.current = true;
+    setLivePlayhead(Math.min(SHOWCASE_OPENING_PLAYHEAD_MS, liveEnd - liveStart));
+  }, [liveMode, liveStart, liveEnd, setLivePlayhead]);
 
   const [mediaLoaded, setMediaLoaded] = useState(false);
   const [splashTimedOut, setSplashTimedOut] = useState(false);
@@ -166,292 +193,145 @@ export function ShowcaseEvent() {
   }, [flyTo, setLiveMode, setLivePlaying, setShowcaseIntroLocked, surfaceReady]);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", width: "100vw", background: "#000" }}>
-      <header
-        style={{
-          flexShrink: 0,
-          zIndex: 40,
-          display: "flex",
-          alignItems: "center",
-          gap: 16,
-          padding: "10px 16px",
-          borderBottom: "1px solid var(--hairline)",
-          background: "rgba(0,0,0,0.82)",
-          backdropFilter: "blur(16px) saturate(180%)",
-          WebkitBackdropFilter: "blur(16px) saturate(180%)"
-        }}
-      >
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ fontSize: 11, letterSpacing: 0.35, color: "var(--text-faint)", textTransform: "uppercase" }}>
-            Event showcase · Minneapolis
-          </div>
-          <div style={{ fontSize: 14, fontWeight: 650, color: "var(--text)", lineHeight: 1.3, marginTop: 3 }}>
-            {prettiStory.title}
-          </div>
-        </div>
-      </header>
+    <div
+      className={`showcase-demo-hud${showcaseIntroLocked ? " showcase-intro-locked" : ""}`}
+      style={{ position: "relative", height: "100vh", width: "100vw", background: "var(--map-void)", overflow: "hidden" }}
+    >
+      <MapView />
+      <div className="ev-map-tint" aria-hidden />
 
-      <main
-        className={`showcase-demo-hud${showcaseIntroLocked ? " showcase-intro-locked" : ""}`}
-        style={{ flex: 1, position: "relative", minHeight: 0 }}
-      >
-        <MapView />
-
-        {!surfaceReady && (
+      {!surfaceReady && (
+        <div
+          role="progressbar"
+          aria-busy="true"
+          aria-valuetext={!mediaLoaded ? "Loading media" : "Preparing map"}
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 60,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexDirection: "column",
+            gap: 22,
+            background:
+              "radial-gradient(ellipse 120% 80% at 50% 42%, rgba(38,36,31,0.96) 0%, rgba(22,19,16,0.98) 55%, rgba(22,19,16,1) 100%)",
+            backdropFilter: "blur(10px)",
+            WebkitBackdropFilter: "blur(10px)"
+          }}
+        >
           <div
-            role="progressbar"
-            aria-busy="true"
-            aria-valuetext={!mediaLoaded ? "Loading media" : "Preparing map"}
+            className="showcase-loader-glow showcase-loader-pulse"
             style={{
-              position: "absolute",
-              inset: 0,
-              zIndex: 60,
+              width: 92,
+              height: 92,
+              borderRadius: "50%",
+              border: "2px solid rgba(252,251,248,0.12)",
+              background:
+                "linear-gradient(135deg, rgba(111,189,176,0.18) 0%, rgba(47,143,131,0.12) 50%, rgba(22,19,16,0.5) 100%)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              flexDirection: "column",
-              gap: 22,
-              background:
-                "radial-gradient(ellipse 120% 80% at 50% 42%, rgba(18,32,54,0.94) 0%, rgba(4,8,14,0.97) 55%, rgba(0,0,0,0.99) 100%)",
-              backdropFilter: "blur(10px)",
-              WebkitBackdropFilter: "blur(10px)"
+              boxSizing: "border-box"
             }}
           >
             <div
-              className="showcase-loader-glow showcase-loader-pulse"
+              className="showcase-spinner"
               style={{
-                width: 92,
-                height: 92,
-                borderRadius: "50%",
-                border: "2px solid rgba(255,255,255,0.12)",
-                background:
-                  "linear-gradient(135deg, rgba(125,211,252,0.16) 0%, rgba(167,139,250,0.12) 50%, rgba(12,24,42,0.5) 100%)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxSizing: "border-box"
+                width: 36,
+                height: 36,
+                borderRadius: 8,
+                border: "2px solid rgba(252,251,248,0.3)",
+                borderTopColor: "rgba(111,189,176,0.95)",
+                borderRightColor: "rgba(47,143,131,0.8)"
+              }}
+            />
+          </div>
+          <div style={{ textAlign: "center", maxWidth: 340, padding: "0 20px" }}>
+            <div
+              style={{
+                fontFamily: "var(--font-serif)",
+                fontSize: 19,
+                fontWeight: 500,
+                letterSpacing: 0.01,
+                color: "var(--ink)"
               }}
             >
-              <div
-                className="showcase-spinner"
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 8,
-                  border: "2px solid rgba(255,255,255,0.35)",
-                  borderTopColor: "rgba(125,211,252,0.95)",
-                  borderRightColor: "rgba(167,139,250,0.75)"
-                }}
-              />
+              Preparing the reconstruction
             </div>
-            <div style={{ textAlign: "center", maxWidth: 340, padding: "0 20px" }}>
-              <div
-                style={{
-                  fontSize: 15,
-                  fontWeight: 650,
-                  letterSpacing: 0.02,
-                  color: "rgba(255,255,255,0.94)",
-                  textShadow: "0 2px 24px rgba(0,0,0,0.5)"
-                }}
-              >
-                Preparing showcase
-              </div>
-              <div
-                style={{
-                  marginTop: 10,
-                  fontSize: 12,
-                  lineHeight: 1.55,
-                  color: "rgba(255,255,255,0.52)",
-                  fontWeight: 500
-                }}
-              >
-                {!mediaLoaded
-                  ? "Loading verified eyewitness clips and metadata…"
-                  : "Finishing map tiles and incident layers…"}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {surfaceReady && (
-          <div
-            style={{
-              position: "absolute",
-              top: 16,
-              right: 16,
-              zIndex: 95,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "flex-end",
-              gap: 10
-            }}
-          >
-            <svg width="0" height="0" style={{ position: "absolute", overflow: "hidden" }} aria-hidden>
-              <defs>
-                <linearGradient id={recenterGradId} x1="4" y1="4" x2="20" y2="20">
-                  <stop stopColor="#7dd3fc" />
-                  <stop offset="1" stopColor="#a78bfa" />
-                </linearGradient>
-              </defs>
-            </svg>
-            <button
-              type="button"
-              aria-label="Center map on incident"
-              aria-disabled={showcaseIntroLocked}
-              disabled={showcaseIntroLocked}
-              title={
-                showcaseIntroLocked
-                  ? "Available after the opening view finishes"
-                  : "Fly back to 26th & Nicollet"
-              }
-              onClick={() => flyToIncidentDetail()}
+            <div
               style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 9,
-                padding: "10px 16px 10px 13px",
-                borderRadius: 999,
-                border: "1px solid rgba(255,255,255,0.14)",
-                background: "linear-gradient(145deg, rgba(28,28,32,0.82) 0%, rgba(14,14,18,0.88) 100%)",
-                backdropFilter: "blur(20px) saturate(180%)",
-                WebkitBackdropFilter: "blur(20px) saturate(180%)",
-                boxShadow:
-                  "0 0 0 1px rgba(0,0,0,0.45) inset, 0 8px 28px rgba(0,0,0,0.45), 0 0 24px rgba(99, 180, 255, 0.12)",
-                color: "rgba(255,255,255,0.95)",
+                marginTop: 10,
                 fontSize: 12,
-                fontWeight: 650,
-                letterSpacing: 0.03,
-                cursor: showcaseIntroLocked ? "not-allowed" : "pointer",
-                opacity: showcaseIntroLocked ? 0.42 : 1,
-                transition: "transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, opacity 160ms ease"
-              }}
-              onMouseEnter={(e) => {
-                if (showcaseIntroLocked) return;
-                e.currentTarget.style.transform = "translateY(-1px) scale(1.02)";
-                e.currentTarget.style.borderColor = "rgba(255,255,255,0.28)";
-                e.currentTarget.style.boxShadow =
-                  "0 0 0 1px rgba(0,0,0,0.5) inset, 0 12px 36px rgba(0,0,0,0.5), 0 0 28px rgba(130, 196, 255, 0.2)";
-              }}
-              onMouseLeave={(e) => {
-                if (showcaseIntroLocked) return;
-                e.currentTarget.style.transform = "none";
-                e.currentTarget.style.borderColor = "rgba(255,255,255,0.14)";
-                e.currentTarget.style.boxShadow =
-                  "0 0 0 1px rgba(0,0,0,0.45) inset, 0 8px 28px rgba(0,0,0,0.45), 0 0 24px rgba(99, 180, 255, 0.12)";
+                lineHeight: 1.55,
+                color: "var(--ink-dim)",
+                fontWeight: 500
               }}
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden style={{ flexShrink: 0, opacity: 0.92 }}>
-                <path
-                  d="M12 4v4M12 16v4M4 12h4M16 12h4"
-                  stroke={`url(#${recenterGradId})`}
-                  strokeWidth="1.45"
-                  strokeLinecap="round"
-                />
-                <path
-                  d="M7 7L4 4M17 7L20 4M7 17L4 20M17 17L20 20"
-                  stroke={`url(#${recenterGradId})`}
-                  strokeWidth="1.25"
-                  strokeLinecap="round"
-                />
-                <circle cx="12" cy="12" r="3" stroke={`url(#${recenterGradId})`} strokeWidth="1.35" />
-              </svg>
-              <span style={{ textShadow: "0 1px 12px rgba(0,0,0,0.5)" }}>Center again</span>
-            </button>
-
-            {liveMode && (
-              <button
-                type="button"
-                aria-label={showcaseFloatingVideosHidden ? "Show floating clips" : "Hide floating clips"}
-                aria-pressed={showcaseFloatingVideosHidden}
-                title={showcaseFloatingVideosHidden ? "Show eyewitness clips" : "Hide eyewitness clips"}
-                onClick={() => toggleShowcaseFloatingVideosHidden()}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  width: 44,
-                  height: 44,
-                  borderRadius: 999,
-                  border: showcaseFloatingVideosHidden
-                    ? "1px solid rgba(125,211,252,0.35)"
-                    : "1px solid rgba(255,255,255,0.14)",
-                  background: showcaseFloatingVideosHidden
-                    ? "linear-gradient(145deg, rgba(36,52,72,0.9) 0%, rgba(22,26,38,0.92) 100%)"
-                    : "linear-gradient(145deg, rgba(28,28,32,0.82) 0%, rgba(14,14,18,0.88) 100%)",
-                  backdropFilter: "blur(20px) saturate(180%)",
-                  WebkitBackdropFilter: "blur(20px) saturate(180%)",
-                  boxShadow: showcaseFloatingVideosHidden
-                    ? "0 0 0 1px rgba(0,0,0,0.45) inset, 0 6px 22px rgba(0,0,0,0.42), 0 0 20px rgba(99, 180, 255, 0.18)"
-                    : "0 0 0 1px rgba(0,0,0,0.45) inset, 0 8px 28px rgba(0,0,0,0.45), 0 0 24px rgba(99, 180, 255, 0.12)",
-                  cursor: "pointer",
-                  transition: "transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease"
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = "translateY(-1px) scale(1.04)";
-                  if (!showcaseFloatingVideosHidden) {
-                    e.currentTarget.style.borderColor = "rgba(255,255,255,0.28)";
-                    e.currentTarget.style.boxShadow =
-                      "0 0 0 1px rgba(0,0,0,0.5) inset, 0 12px 36px rgba(0,0,0,0.5), 0 0 28px rgba(130, 196, 255, 0.2)";
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "none";
-                  if (!showcaseFloatingVideosHidden) {
-                    e.currentTarget.style.borderColor = "rgba(255,255,255,0.14)";
-                    e.currentTarget.style.boxShadow =
-                      "0 0 0 1px rgba(0,0,0,0.45) inset, 0 8px 28px rgba(0,0,0,0.45), 0 0 24px rgba(99, 180, 255, 0.12)";
-                  }
-                }}
-              >
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden style={{ opacity: 0.94 }}>
-                  {showcaseFloatingVideosHidden ? (
-                    <>
-                      <path
-                        d="M3 3l18 18M10.73 10.73a3 3 0 004.54 4.54M9.88 9.88A9.94 9.94 0 0112 5c4 0 7.33 3.33 10 10a17.53 17.53 0 01-2.57 4.59"
-                        stroke={`url(#${recenterGradId})`}
-                        strokeWidth="1.45"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                      <path
-                        d="M6.61 6.61C4.63 8.02 3 10 2 12c3 7 10 11 10 11 .94-.52 2.04-1.23 3.17-2.06"
-                        stroke={`url(#${recenterGradId})`}
-                        strokeWidth="1.45"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                      <path
-                        d="M14.12 14.12c-.52.37-1.15.62-1.87.62a3 3 0 01-3-3c0-.72.24-1.35.61-1.87"
-                        stroke={`url(#${recenterGradId})`}
-                        strokeWidth="1.45"
-                        strokeLinecap="round"
-                      />
-                    </>
-                  ) : (
-                    <>
-                      <path
-                        d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"
-                        stroke={`url(#${recenterGradId})`}
-                        strokeWidth="1.45"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                      <circle cx="12" cy="12" r="3" stroke={`url(#${recenterGradId})`} strokeWidth="1.45" />
-                    </>
-                  )}
-                </svg>
-              </button>
-            )}
+              {!mediaLoaded
+                ? "Loading verified eyewitness clips and metadata…"
+                : "Finishing map tiles and incident layers…"}
+            </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {liveMode && (
-          <>
-            <Timeline stackZ={96} hideLiveBadge hideClipLabels minimalTransport />
-            <ShowcaseFloatingVideos />
-          </>
-        )}
-      </main>
+      {surfaceReady && (
+        <div className="ev-topbar">
+          <div className="ev-eyebrow">
+            OpenEyes<span className="sep" />Verified Event<span className="dim">· MPLS-0419</span>
+          </div>
+          <h1 className="ev-headline">
+            The killing of Alex&nbsp;Pretti, <em>corroborated</em>.
+          </h1>
+          <div className="ev-dateline">
+            <span>MINNEAPOLIS · NICOLLET AVE</span>
+            <span className="dot" />
+            <span>09:00 CDT</span>
+            <span className="dot" />
+            <span>
+              {liveCount} of {total} angles live
+            </span>
+          </div>
+          <div className="ev-trust">
+            <div className="ev-trust-num">{trust.toFixed(2)}</div>
+            <div className="ev-trust-meta">
+              <div className="ev-trust-label">Trust index · corroboration</div>
+              <div className="ev-trust-bars">
+                {perspectives.map((p) => (
+                  <i key={p.id} className={p.status === "live" ? "" : "off"} />
+                ))}
+              </div>
+              <div className="ev-trust-sub">
+                {liveCount} independent sources · audio-synced · no tampering
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {surfaceReady && (
+        <button
+          type="button"
+          className="ev-pill"
+          aria-label="Center map on incident"
+          disabled={showcaseIntroLocked}
+          title={showcaseIntroLocked ? "Available after the opening view finishes" : "Fly back to 26th & Nicollet"}
+          onClick={() => flyToIncidentDetail()}
+          style={{ position: "absolute", top: 22, right: 26, zIndex: 95 }}
+        >
+          <CenterIcon />
+          Center again
+        </button>
+      )}
+
+      {liveMode && (
+        <>
+          <AnglesPanel perspectives={perspectives} total={total} liveCount={liveCount} />
+          <Timeline stackZ={96} editorial perspectives={perspectives} />
+          <ShowcaseFloatingVideos />
+        </>
+      )}
     </div>
   );
 }

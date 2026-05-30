@@ -5,6 +5,7 @@ import { clipDurationMs, clipOffsetSecondsFromWall, DEFAULT_CLIP_SECONDS } from 
 import { mapPinThumbnailUrl, PRETTI_STORY_ID } from "@/lib/demo";
 import { isClipWarm } from "@/lib/videoPreload";
 import { cameraAccentColor } from "@/lib/cameraColors";
+import { perspectiveFor } from "@/lib/perspectives";
 import {
   computeSpawnRect,
   defaultPanelWidthPx,
@@ -236,7 +237,7 @@ function FloatingPanel(props: {
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const thumbUrl = mapPinThumbnailUrl(props.m.thumbnail_url);
-  const label = props.m.username ?? `Cam ${props.id.slice(0, 6)}`;
+  const label = props.m.username ?? perspectiveFor(props.id).handle;
   const capturedLabel = props.m.captured_at
     ? new Date(props.m.captured_at).toLocaleString(undefined, {
         month: "short",

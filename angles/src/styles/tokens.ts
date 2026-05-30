@@ -1,37 +1,38 @@
-// Palette ported from veriloc/ContentView.swift / map_style.json
-// iOS app uses Color.black base with white at fixed opacities for chrome.
+// Editorial Ink — warm near-black stage with a single petrol/teal brand accent.
+// Mirrors Openeyes_Angles_Design/styles.css so the showcase reads as one design.
 export const palette = {
-  bg: "#000000",
-  bgElevated: "#0c0c0e",
-  bgChip: "rgba(255,255,255,0.08)",
-  bgChipStrong: "rgba(255,255,255,0.15)",
-  glassFill: "rgba(255,255,255,0.05)",
-  glassStroke: "rgba(255,255,255,0.10)",
-  hairline: "rgba(255,255,255,0.07)",
-  divider: "rgba(255,255,255,0.06)",
+  bg: "#1C1B19",
+  bgElevated: "#221F1B",
+  bgChip: "rgba(252,251,248,0.06)",
+  bgChipStrong: "rgba(252,251,248,0.12)",
+  glassFill: "rgba(38,36,31,0.86)",
+  glassStroke: "rgba(252,251,248,0.11)",
+  hairline: "rgba(252,251,248,0.08)",
+  divider: "rgba(252,251,248,0.06)",
 
-  text: "#ffffff",
-  textDim: "rgba(255,255,255,0.72)",
-  textFaint: "rgba(255,255,255,0.45)",
-  textGhost: "rgba(255,255,255,0.30)",
+  text: "#FCFBF8",
+  textDim: "rgba(252,251,248,0.66)",
+  textFaint: "rgba(252,251,248,0.42)",
+  textGhost: "rgba(252,251,248,0.28)",
 
-  accent: "#ffffff", // iOS uses pure white for primary CTA fills
-  accentInk: "#000000", // text on accent fills
+  accent: "#6FBDB0", // petrol/teal that glows on ink
+  accentDeep: "#2f8f83",
+  accentInk: "#161310", // text on accent fills
 
-  // Map style colors (lifted from veriloc/map_style.json)
-  mapBase: "#0a1326",
-  mapWater: "#0a1f3a",
-  mapLand: "#0d1a2e",
-  mapPark: "#0a2433",
-  mapRoadMinor: "#1a2a4a",
-  mapRoadArterial: "#26385c",
-  mapRoadHighway: "#3b5078",
-  mapBuilding: "#142340",
-  mapAdminStroke: "#33476b",
-  mapTextFill: "#7a93b3",
-  mapTextStroke: "#0a1326",
+  // Single-hue teal ramp — five "unified, not rainbow" perspective shades.
+  perspectiveRamp: ["#bfe6df", "#97d3c8", "#6FBDB0", "#52a597", "#3f8a7d"],
 
-  // Story / category gradients (StoryService.swift)
+  // Map style colors (warm-ink stylization of the dark base)
+  mapVoid: "#161310",
+  mapBlock: "#221F1B",
+  mapBlock2: "#1E1B17",
+  mapStreet: "#2b2722",
+  mapStreetMajor: "#36302a",
+  mapLane: "#4a443c",
+  mapTextFill: "#847d70",
+  mapTextStroke: "#161310",
+
+  // Story / category gradients (StoryService.swift) — kept for product mode
   gradients: {
     conflict: ["#451015", "#b53b17"],
     politics: ["#0f1f47", "#127aa6"],
@@ -41,15 +42,18 @@ export const palette = {
   },
 
   // semantic
-  upvote: "#ffffff",
-  cone: "#fef08a", // soft gold for heading cones, like iOS Mock Studio
-  liveDot: "#ff3b30"
+  upvote: "#FCFBF8",
+  victim: "#F4EFD9", // warm subject highlight
+  cone: "#6FBDB0",
+  liveDot: "#6FBDB0"
 } as const;
 
 export const radii = { xs: 4, sm: 8, md: 12, lg: 16, xl: 22, pill: 999 } as const;
 export const spacing = (n: number) => `${n * 4}px`;
 export const font = {
-  family: '"Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif',
+  family: '"Hanken Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif',
+  serif: '"Newsreader", Georgia, serif',
+  mono: '"IBM Plex Mono", ui-monospace, monospace',
   weightRegular: 400,
   weightMedium: 500,
   weightSemibold: 600,
