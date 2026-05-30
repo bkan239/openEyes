@@ -1,44 +1,76 @@
 # OpenEyes API
 
-FastAPI service, deployed to AWS Lambda via Mangum (see root `sst.config.ts`,
-function handler `services/api/app/main.handler`).
+Minimal **`GET /health`** endpoint returning `{"ok": true}`.
 
-## Layout
+## Deploy on Vercel (recommended)
+
+No AWS credentials needed. One serverless function at the repo root:
 
 ```
-app/
-├── main.py            # FastAPI app + Mangum Lambda handler
-├── core/
-│   ├── config.py      # settings (env / SST-injected)
-│   └── aws.py         # boto3 clients (S3, DynamoDB)
-├── models/
-│   └── schemas.py     # Pydantic models (mirror of packages/shared types)
-├── routers/
-│   ├── clips.py       # upload-url, register, media redirect, clustering
-│   ├── events.py      # list / get events
-│   └── verify.py      # re-run AI verification on a clip
-└── services/
-    ├── storage.py     # S3 presign + DynamoDB single-table access
-    ├── verify.py      # OpenAI per-clip manipulation signal
-    ├── cluster.py     # time/geo (+ audio-sync stub) event clustering
-    └── trust.py       # trust-score model (mirror of shared/trust.ts)
+api/health.ts   →  /api/health  (also /health via rewrite)
+vercel.json
 ```
 
-## Local development
+### Option A — Automatic deploy from GitHub (easiest)
+
+1. Push this repo to GitHub (`github.com/bkan239/openEyes`).
+2. Go to [vercel.com/new](https://vercel.com/new) → **Import** the `openEyes` repository.
+3. Leave defaults (root directory `.`, framework **Other**) → **Deploy**.
+
+Vercel installs its GitHub app and then:
+
+- **Production** — every push to `main` deploys to your production URL
+- **Preview** — every pull request gets its own preview URL
+
+Smoke test after the first deploy:
 
 ```bash
-uv sync
-uv run uvicorn app.main:app --reload --port 8000
-# Interactive docs: http://localhost:8000/docs
-uv run pytest
+curl https://<your-project>.vercel.app/health   # {"ok":true}
 ```
 
-Local runs read config from the repo-root `.env`. AWS resource access uses your
-ambient AWS credentials; on Lambda the SST-granted role provides them instead.
+No GitHub Actions secrets required for Option A.
 
-## Key flow
+### Option B — GitHub Actions (`.github/workflows/deploy-vercel.yml`)
 
-1. `POST /clips/upload-url` → pre-registers provenance, returns a presigned S3 PUT URL.
-2. Browser uploads bytes directly to S3.
-3. `POST /clips` → runs AI verification, then clusters the clip into an event.
-4. `GET /events` / `GET /events/{id}` → the verified hub reads from here.
+Use this if you want deploy config in the repo or cannot use the Vercel GitHub app.
+
+Add these [GitHub Actions secrets](https://github.com/bkan239/openEyes/settings/secrets/actions):
+
+| Secret | Where to get it |
+| --- | --- |
+| `VERCEL_TOKEN` | [vercel.com/account/tokens](https://vercel.com/account/tokens) |
+| `VERCEL_ORG_ID` | `.vercel/project.json` after `npx vercel link` |
+| `VERCEL_PROJECT_ID` | `.vercel/project.json` after `npx vercel link` |
+
+Pushes to `main` that touch `api/`, `vercel.json`, or `package.json` trigger a production deploy.
+
+### Manual deploy (CLI)
+
+```bash
+npm install
+npx vercel login          # once
+npm run deploy:vercel     # preview URL
+npm run deploy:vercel:prod
+```
+
+Local dev with Vercel CLI:
+
+```bash
+npx vercel dev
+curl http://localhost:3000/health
+```
+
+## Local development (FastAPI)
+
+Optional — same response shape, useful if you prefer Python locally:
+
+```bash
+cd services/api
+uv sync
+uv run uvicorn app.main:app --reload --port 8000
+curl http://localhost:8000/health
+```
+
+## Deploy on AWS (optional)
+
+Lambda + Function URL via SST or `./scripts/deploy-api.sh`. See root `sst.config.ts` and `scripts/deploy-api.sh`. Requires IAM permissions on your AWS user.

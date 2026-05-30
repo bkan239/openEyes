@@ -16,11 +16,15 @@
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
     "deploy": "sst deploy",
+    "deploy:api": "./scripts/deploy-api.sh",
+    "deploy:vercel": "vercel deploy",
+    "deploy:vercel:prod": "vercel deploy --prod",
     "deploy:prod": "sst deploy --stage production",
     "remove": "sst remove",
     "secret:openai": "sst secret set OpenAiApiKey"
   },
   "devDependencies": {
+    "@vercel/node": "^3.2.29",
     "sst": "^3.13.0",
     "turbo": "^2.3.0",
     "typescript": "^5.7.0"

@@ -12,6 +12,11 @@ build/
 # SST / Pulumi
 .sst/
 .open-next/
+.vercel/
+
+# Lambda build artifacts
+services/api/.lambda-build/
+services/api/.lambda-package.zip
 
 # Python
 __pycache__/

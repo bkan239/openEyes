@@ -1,0 +1,20 @@
+# Large / unrelated — health API only needs api/ + package.json
+angles/
+iOSApp/
+services/
+packages/
+scripts/
+.sst/
+.open-next/
+node_modules/
+services/api/.lambda-build/
+services/api/.lambda-package.zip
+pnpm-lock.yaml
+pnpm-workspace.yaml
+turbo.json
+
+# Dev / tooling
+.claude/
+.github/
+*.md
+!README.md
