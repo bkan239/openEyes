@@ -1,5 +1,4 @@
-# Large / unrelated — health API only needs api/ + package.json
-angles/
+# Unrelated to either Vercel project — keep uploads lean for the API deploy.
 iOSApp/
 services/
 packages/

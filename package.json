@@ -19,6 +19,8 @@
     "deploy:api": "./scripts/deploy-api.sh",
     "deploy:vercel": "vercel deploy",
     "deploy:vercel:prod": "vercel deploy --prod",
+    "deploy:angles": "vercel deploy --project open-eyes-angles",
+    "deploy:angles:prod": "vercel deploy --prod --project open-eyes-angles",
     "deploy:prod": "sst deploy --stage production",
     "remove": "sst remove",
     "secret:openai": "sst secret set OpenAiApiKey"

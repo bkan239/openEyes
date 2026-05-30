@@ -29,6 +29,8 @@ npm run dev
 
 Open [http://localhost:5175](http://localhost:5175).
 
+**Live demo:** [open-eyes-angles.vercel.app](https://open-eyes-angles.vercel.app) (auto-deploys from `main` when `angles/` changes).
+
 Production build:
 
 ```bash

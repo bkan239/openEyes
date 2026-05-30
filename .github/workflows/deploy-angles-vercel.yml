@@ -1,0 +1,45 @@
+# Deploy the angles Minneapolis demo (Vite SPA) to Vercel on every push to main.
+#
+# Requires a separate Vercel project with Root Directory = angles (open-eyes-angles).
+# GitHub secrets (Settings → Secrets → Actions):
+#   VERCEL_TOKEN              — https://vercel.com/account/tokens
+#   VERCEL_ORG_ID             — team id from .vercel/project.json
+#   VERCEL_ANGLES_PROJECT_ID  — project id for open-eyes-angles
+#
+# Easier alternative: link the repo in Vercel with Root Directory = angles;
+# the Vercel GitHub app auto-deploys with no secrets.
+
+name: Deploy Angles Demo (Vercel)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "angles/**"
+      - ".github/workflows/deploy-angles-vercel.yml"
+  workflow_dispatch:
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_ANGLES_PROJECT_ID }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: angles
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: angles/package-lock.json
+
+      - name: Pull Vercel env
+        run: npx vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy to Vercel (production)
+        run: npx vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }}

@@ -133,6 +133,15 @@ A shared AWS backend with several independent frontend clients:
 
 See [`DEVELOPMENT.md`](./DEVELOPMENT.md) for setup and the day-to-day workflow.
 
+### Live demos (Vercel)
+
+| Demo | URL |
+| --- | --- |
+| **Angles** — Minneapolis multi-angle map | [open-eyes-angles.vercel.app](https://open-eyes-angles.vercel.app) |
+| **API** — health + OpenAPI docs | [open-eyes-three.vercel.app](https://open-eyes-three.vercel.app) |
+
+Both auto-deploy from `main` via separate Vercel projects (`angles/` vs repo root).
+
 ---
 
 ## Repository structure
