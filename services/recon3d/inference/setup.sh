@@ -44,6 +44,7 @@ export MAX_JOBS="${MAX_JOBS:-4}"
 nvcc --version || echo "WARNING: no nvcc found — pytorch3d CUDA build may fail; apt-get install -y cuda-toolkit-12-1"
 uv pip install -r AnySplat/requirements.txt --no-build-isolation
 uv pip install "numpy<2" pillow-heif   # re-pin numpy<2 (in case reqs bumped it) + HEIC
+uv pip install fastapi "uvicorn[standard]" python-multipart   # live HTTP server (app.py)
 
 python - <<'PY'
 import torch
