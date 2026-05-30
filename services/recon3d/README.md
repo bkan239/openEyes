@@ -75,9 +75,9 @@ For the "regenerate the scene from a new camera" wow, export a nerfstudio datase
 and train Splatfacto, seeded with VGGT-Omega's poses + point cloud:
 
 ```bash
-# 1) trim to a short, coherent, low-motion window and export the splat dataset:
+# 1) trim to a short window + mask moving people, then export the splat dataset:
 python run.py --clip data/clips/227a4b91-....mp4 --start 6 --end 16 \
-  --out hero --max-frames 60 --voxel 0.004 --nerfstudio \
+  --out hero --max-frames 60 --voxel 0.004 --nerfstudio --mask-people \
   --backend omega --checkpoint /workspace/checkpoints/vggt_omega_1b_512.pt
 
 # 2) train + render a novel-view fly-through (on the A40):
@@ -88,9 +88,14 @@ ns-render camera-path --load-config outputs/.../config.yml \
 ```
 
 `core/export_nerfstudio.py` writes `hero/nerfstudio/{transforms.json, images/,
-sparse_pc.ply}` (VGGT extrinsics inverted to camera-to-world + OpenCV→OpenGL axis
-flip; intrinsics match because we reuse the model's own frames). **No generative
+masks/, sparse_pc.ply}` (VGGT extrinsics inverted to camera-to-world + OpenCV→OpenGL
+axis flip; intrinsics match because we reuse the model's own frames). **No generative
 models** — the splat renders only observed geometry.
+
+**Moving people** (the scene is dynamic — 3DGS assumes static): `--mask-people`
+runs YOLO-seg and writes per-frame masks so Splatfacto trains **only on the static
+scene** (street/building/cars), excluding the crowd. The 3D output becomes a clean
+reconstruction of the *location*; the people stay in the 2D multi-angle player.
 
 ## Tuning / troubleshooting
 

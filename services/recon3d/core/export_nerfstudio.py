@@ -36,14 +36,19 @@ def _c2w_opengl(extr_w2c: np.ndarray) -> np.ndarray:
     return c2w @ _CV_TO_GL
 
 
-def write(out_dir, *, rgb, extrinsics, intrinsics, points, colors) -> Path:
-    """Write the nerfstudio dataset. ``rgb`` is (S,H,W,3) uint8 (model images)."""
+def write(out_dir, *, rgb, extrinsics, intrinsics, points, colors, masks=None) -> Path:
+    """Write the nerfstudio dataset. ``rgb`` is (S,H,W,3) uint8 (model images).
+
+    ``masks`` (optional, S,H,W uint8: 255 keep / 0 ignore) excludes moving people
+    from the splat loss — nerfstudio trains only where the mask is > 0.
+    """
     import cv2
     import trimesh
 
     out_dir = Path(out_dir)
-    img_dir = out_dir / "images"
-    img_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "images").mkdir(parents=True, exist_ok=True)
+    if masks is not None:
+        (out_dir / "masks").mkdir(parents=True, exist_ok=True)
 
     S, H, W, _ = rgb.shape
     frames = []
@@ -52,13 +57,18 @@ def write(out_dir, *, rgb, extrinsics, intrinsics, points, colors) -> Path:
         cv2.imwrite(str(out_dir / name), cv2.cvtColor(rgb[i], cv2.COLOR_RGB2BGR),
                     [cv2.IMWRITE_JPEG_QUALITY, 95])
         K = np.asarray(intrinsics[i], dtype=float)
-        frames.append({
+        frame = {
             "file_path": name,
             "fl_x": float(K[0, 0]), "fl_y": float(K[1, 1]),
             "cx": float(K[0, 2]), "cy": float(K[1, 2]),
             "w": W, "h": H,
             "transform_matrix": _c2w_opengl(np.asarray(extrinsics[i])).tolist(),
-        })
+        }
+        if masks is not None:
+            mname = f"masks/mask_{i:04d}.png"
+            cv2.imwrite(str(out_dir / mname), masks[i])
+            frame["mask_path"] = mname
+        frames.append(frame)
 
     K0 = np.asarray(intrinsics[0], dtype=float)
     meta = {

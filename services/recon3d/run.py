@@ -52,6 +52,9 @@ def main() -> None:
     ap.add_argument("--nerfstudio", action="store_true",
                     help="also export a nerfstudio dataset to <out>/nerfstudio for "
                          "Gaussian Splatting (ns-train splatfacto --data <out>/nerfstudio)")
+    ap.add_argument("--mask-people", action="store_true",
+                    help="with --nerfstudio: segment people and write masks so the splat "
+                         "ignores the moving crowd (needs ultralytics; trains on static scene)")
     args = ap.parse_args()
 
     out = Path(args.out)
@@ -87,6 +90,7 @@ def main() -> None:
         clean=not args.no_clean,
         voxel=args.voxel,
         nerfstudio_dir=str(out / "nerfstudio") if args.nerfstudio else None,
+        mask_people=args.mask_people,
     )
 
     # 3) predictions -> GLB

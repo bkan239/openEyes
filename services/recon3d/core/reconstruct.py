@@ -196,6 +196,7 @@ def reconstruct(
     clean: bool = True,
     voxel: float | None = None,
     nerfstudio_dir: str | None = None,
+    mask_people: bool = False,
 ) -> Reconstruction:
     """Run inference and return a normalized, confidence-filtered point cloud."""
     import torch
@@ -254,8 +255,12 @@ def reconstruct(
 
     if nerfstudio_dir:
         from .export_nerfstudio import write as write_ns
+        masks = None
+        if mask_people:
+            from .masks import person_keep_masks
+            masks = person_keep_masks(rgb)
         write_ns(nerfstudio_dir, rgb=rgb, extrinsics=extr, intrinsics=intr,
-                 points=pts, colors=cols)
+                 points=pts, colors=cols, masks=masks)
 
     print(f"[reconstruct] {len(pts):,} points, {len(extr)} cameras, image {H}x{W}")
     return Reconstruction(

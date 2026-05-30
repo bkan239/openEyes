@@ -23,6 +23,7 @@ dependencies = [
 gpu = [
     "torch",
     "torchvision",
+    "ultralytics",   # YOLO-seg for person/distractor masks (--mask-people)
 ]
 
 [build-system]
