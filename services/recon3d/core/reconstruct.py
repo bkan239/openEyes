@@ -178,11 +178,13 @@ def reconstruct(
         world = _drop_batch(_np(preds["world_points"]), 4)                # (S,H,W,3)
         conf = _drop_batch(_np(preds["world_points_conf"]), 3) if "world_points_conf" in preds else None
     else:
-        depth = _drop_batch(_np(preds["depth"]), 3)                       # (S,H,W) or (S,H,W,1)
-        if depth.ndim == 4:
+        # Omega depth comes back as (1, S, H, W, 1) — squeeze batch + channel
+        # singletons down to (S, H, W). Safe here because S >> 1.
+        depth = np.squeeze(_np(preds["depth"]))
+        if depth.ndim == 4:                       # any non-singleton extra dim left
             depth = depth[..., 0]
         world = _unproject(depth, extr, intr)
-        conf = _drop_batch(_np(preds["depth_conf"]), 3) if "depth_conf" in preds else None
+        conf = np.squeeze(_np(preds["depth_conf"])) if "depth_conf" in preds else None
 
     pts = world.reshape(-1, 3)
     cols = rgb.reshape(-1, 3)
