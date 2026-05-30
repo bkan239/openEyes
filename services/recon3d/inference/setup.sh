@@ -22,10 +22,21 @@ uv venv --python 3.10 .venv-anysplat
 # shellcheck disable=SC1091
 source .venv-anysplat/bin/activate
 
-# 3) deps — torch first (cu121), then AnySplat's requirements, then our extras
+# 3) deps — torch first (cu121), then build tools, then AnySplat's requirements.
 uv pip install torch==2.2.0 torchvision==0.17.0 torchaudio==2.2.0 \
   --index-url https://download.pytorch.org/whl/cu121
-uv pip install -r AnySplat/requirements.txt
+
+# pytorch3d (and other CUDA-extension deps) import torch AT BUILD TIME, which a
+# PEP517 isolated build can't see -> install with --no-build-isolation, with the
+# build tools + nvcc available. RunPod PyTorch images ship nvcc at /usr/local/cuda.
+uv pip install setuptools wheel ninja
+if [ -x /usr/local/cuda/bin/nvcc ]; then
+  export CUDA_HOME=/usr/local/cuda
+  export PATH="/usr/local/cuda/bin:$PATH"
+fi
+export MAX_JOBS="${MAX_JOBS:-4}"
+nvcc --version || echo "WARNING: no nvcc found — pytorch3d CUDA build may fail; apt-get install -y cuda-toolkit-12-1"
+uv pip install -r AnySplat/requirements.txt --no-build-isolation
 uv pip install pillow-heif        # iPhone HEIC -> JPG
 
 python - <<'PY'
