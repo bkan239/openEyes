@@ -22,9 +22,9 @@ def main() -> None:
     ap = argparse.ArgumentParser(description="OpenEyes 3D reconstruction (VGGT / VGGT-Omega)")
     ap.add_argument("--clips-dir", default="data/clips", help="folder of .mp4 clips")
     ap.add_argument("--out", default="out", help="output folder")
-    ap.add_argument("--backend", choices=["vggt", "omega"], default="vggt")
+    ap.add_argument("--backend", choices=["vggt", "omega"], default="omega")
     ap.add_argument("--checkpoint", default=None,
-                    help="omega: path to .pt; vggt: HF repo id (default facebook/VGGT-1B)")
+                    help="omega: path to vggt_omega_1b_512.pt; vggt: HF repo id (default facebook/VGGT-1B)")
     ap.add_argument("--resolution", type=int, default=512)
     ap.add_argument("--max-frames", type=int, default=60)
     ap.add_argument("--conf-percentile", type=float, default=50.0,

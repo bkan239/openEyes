@@ -2,18 +2,19 @@
 
 Two backends, selected by a flag (no code change to swap):
 
-  * ``vggt``  — base VGGT-1B, ungated (https://huggingface.co/facebook/VGGT-1B).
-                Used to prove the pipeline while VGGT-Omega access is pending.
   * ``omega`` — VGGT-Omega-1B-512, gated (https://huggingface.co/facebook/VGGT-Omega).
-                Load the downloaded checkpoint via --checkpoint.
+                Load the downloaded ``vggt_omega_1b_512.pt`` via --checkpoint.
+                Official API: VGGTOmega() + encoding_to_camera + depth (no point head).
+  * ``vggt``  — base VGGT-1B, ungated (https://huggingface.co/facebook/VGGT-1B).
+                Useful fallback; has a point head (`world_points`).
 
-Both produce, per frame, camera extrinsics/intrinsics + a dense point map with
-confidence. We flatten those into one colored point cloud plus a list of camera
-poses — a backend-agnostic ``Reconstruction`` the exporter can consume.
+Both give, per frame: a camera pose encoding + a dense depth map with
+confidence. We decode cameras, unproject depth to world points (ourselves, so we
+don't depend on each repo's geometry-util names), color from the input images,
+confidence-filter, and return a backend-agnostic ``Reconstruction``.
 
-This module imports torch and the upstream model packages, so it only runs on
-the GPU pod. Keep heavy imports inside the functions so the rest of the package
-(frames, export) stays importable on the Mac.
+torch + the upstream model packages are imported lazily inside functions so the
+rest of the package (frames, export) stays importable on a CPU-only Mac.
 """
 
 from __future__ import annotations
@@ -27,53 +28,125 @@ import numpy as np
 class Reconstruction:
     points: np.ndarray        # (N, 3) float32 world coordinates
     colors: np.ndarray        # (N, 3) uint8 RGB
-    extrinsics: np.ndarray    # (S, 4, 4) float32 camera-to-world (or world-to-cam; see export)
+    extrinsics: np.ndarray    # (S, 4, 4) float32 world-to-camera (OpenCV)
     intrinsics: np.ndarray    # (S, 3, 3) float32
     image_size: tuple[int, int]  # (H, W) the model ran at
 
 
+# --------------------------------------------------------------------------- #
+# model + preprocessing
+# --------------------------------------------------------------------------- #
 def _load_model(backend: str, checkpoint: str | None, device: str):
     import torch
 
     if backend == "omega":
-        # See https://github.com/facebookresearch/vggt-omega
         from vggt_omega.models import VGGTOmega  # type: ignore
 
-        model = VGGTOmega().to(device).eval()
         if not checkpoint:
-            raise ValueError("backend 'omega' requires --checkpoint to a downloaded .pt")
+            raise ValueError(
+                "backend 'omega' needs --checkpoint to vggt_omega_1b_512.pt "
+                "(download it from facebook/VGGT-Omega)."
+            )
+        model = VGGTOmega().to(device).eval()
         state = torch.load(checkpoint, map_location="cpu")
-        # Some releases nest the weights under a key.
-        state = state.get("model", state) if isinstance(state, dict) else state
+        if isinstance(state, dict):
+            state = state.get("model", state.get("state_dict", state))
         model.load_state_dict(state)
         return model
 
-    # backend == "vggt": base model, loads weights from the Hub directly.
+    # backend == "vggt": base model loads its weights from the Hub directly.
     from vggt.models.vggt import VGGT  # type: ignore
 
-    name = checkpoint or "facebook/VGGT-1B"
-    model = VGGT.from_pretrained(name).to(device).eval()
-    return model
+    return VGGT.from_pretrained(checkpoint or "facebook/VGGT-1B").to(device).eval()
 
 
-def _load_images(image_paths: list[str], resolution: int, device: str):
-    """Use the upstream preprocessing so inputs match training."""
-    try:
-        from vggt.utils.load_fn import load_and_preprocess_images  # type: ignore
-    except Exception:  # pragma: no cover - omega-only environments
+def _load_images(backend: str, image_paths: list[str], resolution: int, device: str):
+    """Use the matching repo's preprocessing so inputs match training."""
+    if backend == "omega":
         from vggt_omega.utils.load_fn import load_and_preprocess_images  # type: ignore
+    else:
+        from vggt.utils.load_fn import load_and_preprocess_images  # type: ignore
 
     try:
         images = load_and_preprocess_images(image_paths, image_resolution=resolution)
     except TypeError:
-        # Older signature without the resolution kwarg.
-        images = load_and_preprocess_images(image_paths)
-    return images.to(device)
+        images = load_and_preprocess_images(image_paths)  # older signature
+    return images.to(device)  # (S, 3, H, W)
 
 
+# --------------------------------------------------------------------------- #
+# helpers
+# --------------------------------------------------------------------------- #
+def _np(x):
+    return x.float().cpu().numpy() if hasattr(x, "detach") else np.asarray(x)
+
+
+def _drop_batch(a: np.ndarray, want_ndim: int) -> np.ndarray:
+    """Strip a leading singleton batch dim if present (we always run S>>1)."""
+    if a.ndim == want_ndim + 1 and a.shape[0] == 1:
+        return a[0]
+    return a
+
+
+def _to_4x4(extr: np.ndarray) -> np.ndarray:
+    if extr.shape[-2:] == (4, 4):
+        return extr
+    S = extr.shape[0]
+    out = np.tile(np.eye(4, dtype=np.float64), (S, 1, 1))
+    out[:, :3, :4] = extr
+    return out
+
+
+def _decode_cameras(backend: str, pose_enc, hw, preds: dict):
+    """Return (S,4,4) world-to-camera extrinsics and (S,3,3) intrinsics."""
+    import torch
+
+    # Some checkpoints expose extrinsic/intrinsic directly.
+    if "extrinsic" in preds and "intrinsic" in preds:
+        extr = _drop_batch(_np(preds["extrinsic"]), 3)
+        intr = _drop_batch(_np(preds["intrinsic"]), 3)
+        return _to_4x4(extr.astype(np.float64)), intr.astype(np.float64)
+
+    if backend == "omega":
+        from vggt_omega.utils.pose_enc import encoding_to_camera  # type: ignore
+
+        extr, intr = encoding_to_camera(pose_enc, hw)
+    else:
+        from vggt.utils.pose_enc import pose_encoding_to_extri_intri  # type: ignore
+
+        extr, intr = pose_encoding_to_extri_intri(pose_enc, hw)
+
+    extr = _drop_batch(_np(extr), 3).astype(np.float64)
+    intr = _drop_batch(_np(intr), 3).astype(np.float64)
+    return _to_4x4(extr), intr
+
+
+def _unproject(depth: np.ndarray, extr: np.ndarray, intr: np.ndarray):
+    """Depth + cameras -> world point map. Plain pinhole math, version-agnostic.
+
+    depth (S,H,W), extr (S,4,4) world-to-cam, intr (S,3,3). Returns (S,H,W,3).
+    """
+    S, H, W = depth.shape
+    uu, vv = np.meshgrid(np.arange(W), np.arange(H))           # (H,W)
+    ones = np.ones_like(uu)
+    pix = np.stack([uu, vv, ones], axis=-1).reshape(-1, 3).T   # (3, H*W)
+
+    world = np.empty((S, H * W, 3), dtype=np.float32)
+    for s in range(S):
+        Kinv = np.linalg.inv(intr[s])
+        dirs = Kinv @ pix                                      # (3, N), z-normalized to 1
+        cam = dirs * depth[s].reshape(-1)[None, :]             # (3, N), scaled by depth
+        R, t = extr[s][:3, :3], extr[s][:3, 3]
+        world[s] = (R.T @ (cam - t[:, None])).T                # X_world = R^T (X_cam - t)
+    return world.reshape(S, H, W, 3)
+
+
+# --------------------------------------------------------------------------- #
+# main
+# --------------------------------------------------------------------------- #
 def reconstruct(
     image_paths: list[str],
-    backend: str = "vggt",
+    backend: str = "omega",
     checkpoint: str | None = None,
     resolution: int = 512,
     conf_percentile: float = 50.0,
@@ -86,70 +159,43 @@ def reconstruct(
     print(f"[reconstruct] backend={backend} device={device} frames={len(image_paths)}")
 
     model = _load_model(backend, checkpoint, device)
-    images = _load_images(image_paths, resolution, device)  # (S, 3, H, W)
-    if images.ndim == 4:
-        images = images[None]  # add batch -> (1, S, 3, H, W)
+    images = _load_images(backend, image_paths, resolution, device)  # (S,3,H,W)
 
-    autocast_dtype = torch.bfloat16 if device == "cuda" else torch.float32
+    amp_dtype = torch.bfloat16 if device == "cuda" else torch.float32
     with torch.inference_mode():
-        with torch.autocast(device_type="cuda" if device == "cuda" else "cpu", dtype=autocast_dtype):
+        with torch.autocast(device_type=("cuda" if device == "cuda" else "cpu"), dtype=amp_dtype):
             preds = model(images)
 
-    preds = {k: (v.float().cpu().numpy() if hasattr(v, "detach") else v) for k, v in preds.items()}
-
-    # ---- point map + confidence -------------------------------------------------
-    # Prefer a precomputed world point map; otherwise unproject depth.
-    if "world_points" in preds:
-        world = preds["world_points"][0]            # (S, H, W, 3)
-        conf = preds.get("world_points_conf", [None])[0]
-    else:
-        world, conf = _unproject(preds)
-
-    imgs = preds["images"][0]                        # (S, 3, H, W) in [0,1]
+    # Colors come from the (possibly resized) images the model reports back.
+    imgs = _drop_batch(_np(preds["images"]) if "images" in preds else _np(images), 4)
     S, _, H, W = imgs.shape
-    rgb = (np.transpose(imgs, (0, 2, 3, 1)) * 255).astype(np.uint8)  # (S,H,W,3)
+    rgb = (np.clip(np.transpose(imgs, (0, 2, 3, 1)), 0, 1) * 255).astype(np.uint8)  # (S,H,W,3)
+
+    extr, intr = _decode_cameras(backend, preds["pose_enc"], (H, W), preds)
+
+    # World points: base VGGT may provide them; otherwise unproject depth.
+    if backend != "omega" and "world_points" in preds:
+        world = _drop_batch(_np(preds["world_points"]), 4)                # (S,H,W,3)
+        conf = _drop_batch(_np(preds["world_points_conf"]), 3) if "world_points_conf" in preds else None
+    else:
+        depth = _drop_batch(_np(preds["depth"]), 3)                       # (S,H,W) or (S,H,W,1)
+        if depth.ndim == 4:
+            depth = depth[..., 0]
+        world = _unproject(depth, extr, intr)
+        conf = _drop_batch(_np(preds["depth_conf"]), 3) if "depth_conf" in preds else None
 
     pts = world.reshape(-1, 3)
     cols = rgb.reshape(-1, 3)
     if conf is not None:
         conf = conf.reshape(-1)
-        thresh = np.percentile(conf, conf_percentile)
-        keep = conf >= thresh
+        keep = conf >= np.percentile(conf, conf_percentile)
         pts, cols = pts[keep], cols[keep]
 
-    # Drop NaNs/infs.
     finite = np.isfinite(pts).all(axis=1)
     pts, cols = pts[finite], cols[finite]
 
-    extr, intr = _cameras(preds, (H, W))
-    print(f"[reconstruct] {len(pts):,} points, {len(extr)} cameras")
-    return Reconstruction(pts.astype(np.float32), cols.astype(np.uint8), extr, intr, (H, W))
-
-
-def _cameras(preds: dict, image_size: tuple[int, int]):
-    """Recover (S,4,4) extrinsics and (S,3,3) intrinsics from the predictions."""
-    if "extrinsic" in preds and "intrinsic" in preds:
-        return preds["extrinsic"][0], preds["intrinsic"][0]
-    # Decode from pose encoding (base VGGT path).
-    try:
-        import torch
-        from vggt.utils.pose_enc import pose_encoding_to_extri_intri  # type: ignore
-
-        pose_enc = torch.from_numpy(preds["pose_enc"])
-        extr, intr = pose_encoding_to_extri_intri(pose_enc, image_size)
-        return extr[0].numpy(), intr[0].numpy()
-    except Exception as e:  # pragma: no cover
-        print(f"[reconstruct] could not decode cameras ({e}); returning identities")
-        S = preds["images"].shape[1]
-        return np.tile(np.eye(4), (S, 1, 1)), np.tile(np.eye(3), (S, 1, 1))
-
-
-def _unproject(preds: dict):
-    """Fallback: build a world point map from depth + cameras."""
-    from vggt.utils.geometry import unproject_depth_map_to_point_map  # type: ignore
-
-    depth = preds["depth"][0]            # (S, H, W, 1) or (S, H, W)
-    extr, intr = _cameras(preds, depth.shape[1:3])
-    world = unproject_depth_map_to_point_map(depth, extr, intr)
-    conf = preds.get("depth_conf", [None])[0]
-    return world, conf
+    print(f"[reconstruct] {len(pts):,} points, {len(extr)} cameras, image {H}x{W}")
+    return Reconstruction(
+        pts.astype(np.float32), cols.astype(np.uint8),
+        extr.astype(np.float32), intr.astype(np.float32), (H, W),
+    )
