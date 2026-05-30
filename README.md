@@ -1,5 +1,13 @@
 # OpenEyes
 
+<p align="center">
+  <a href="media/openeyes-demo.mp4">
+    <img src="media/openeyes-demo.gif" alt="OpenEyes demo — one event, five corroborating angles, rebuilt in 3D" width="760" />
+  </a>
+  <br />
+  <em>▶ <a href="media/openeyes-demo.mp4">Watch in full quality (MP4)</a> · silent · built with <a href="video/">Remotion</a></em>
+</p>
+
 **One witness can lie. Five cannot.**
 
 OpenEyes verifies whether real-world events actually happened, by corroboration instead of single-source detection. Instead of asking one video *"are you real?"*, we ask *"did anyone else see it too?"* — and turn scattered, independent recordings into one verifiable event.

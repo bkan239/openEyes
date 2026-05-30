@@ -1,0 +1,5 @@
+# Remotion video project — keep source, drop build artifacts.
+node_modules/
+out/
+.remotion/
+*.log

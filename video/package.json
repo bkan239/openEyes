@@ -1,0 +1,33 @@
+{
+  "name": "openeyes-video",
+  "version": "1.0.0",
+  "private": true,
+  "description": "OpenEyes — promo video (Remotion). One witness can lie. Five cannot.",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "studio": "remotion studio",
+    "render": "remotion render OpenEyesPromo out/openeyes-demo.mp4 --codec h264 --crf 26 --concurrency 2 --gl angle",
+    "still": "remotion still OpenEyesPromo ../media/openeyes-poster.png --frame 560 --gl angle",
+    "upgrade": "remotion upgrade"
+  },
+  "dependencies": {
+    "@react-three/fiber": "^9.6.1",
+    "@remotion/cli": "^4.0.469",
+    "@remotion/google-fonts": "^4.0.469",
+    "@remotion/media-utils": "^4.0.469",
+    "@remotion/three": "^4.0.469",
+    "@remotion/transitions": "^4.0.469",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "remotion": "^4.0.469",
+    "three": "^0.184.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.15",
+    "@types/react-dom": "^19.2.3",
+    "@types/three": "^0.184.0",
+    "typescript": "^6.0.3"
+  }
+}
