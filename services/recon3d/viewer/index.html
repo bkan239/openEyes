@@ -29,7 +29,7 @@
   <div id="panel">
     <h1>OpenEyes — reconstructed scene</h1>
     <p>drag to orbit · scroll to zoom · right-drag to pan</p>
-    <div class="row"><label>Point size</label><input id="size" type="range" min="0.2" max="6" step="0.1" value="1.6"></div>
+    <div class="row"><label>Point size (px)</label><input id="size" type="range" min="0.5" max="10" step="0.5" value="2"></div>
     <div class="row"><label>Show cameras</label><input id="cams" type="checkbox" checked></div>
     <div class="row"><button id="bg">Toggle background</button><button id="fit">Recenter</button></div>
     <input id="file" type="file" accept=".glb,.gltf" />
@@ -96,8 +96,10 @@
         let nPoints = 0;
         modelRoot.traverse((o) => {
           if (o.isPoints) {
+            // Fixed PIXEL size (sizeAttenuation off) so points stay crisp and
+            // small regardless of the scene's world scale (ours is ~0.2 units).
             const m = new THREE.PointsMaterial({ size: parseFloat(sizeEl.value),
-              vertexColors: true, sizeAttenuation: true });
+              vertexColors: true, sizeAttenuation: false });
             o.material = m; pointMats.push(m);
             nPoints += o.geometry.attributes.position.count;
           } else if (o.isMesh) {
