@@ -9,159 +9,69 @@
         color-scheme: dark;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
         --ink: #1c1b19;
-        --ink-surface: #26241f;
-        --ink-border: #3a3833;
         --on-ink: #fcfbf8;
         --on-ink-muted: #a8a296;
         --primary-on-ink: #6fbdb0;
-        --danger: #ef4444;
       }
       body {
         margin: 0;
         min-height: 100svh;
-        padding: 1rem 1rem 1.5rem;
-        max-width: 36rem;
-        margin-inline: auto;
+        display: grid;
+        place-items: center;
+        padding: 1rem;
         color: var(--on-ink);
         background:
           linear-gradient(180deg, rgba(28, 27, 25, 0.86) 0%, rgba(28, 27, 25, 0.98) 100%),
           radial-gradient(120% 60% at 20% 0%, rgba(111, 189, 176, 0.12), transparent 55%),
           var(--ink);
       }
-      h1 {
-        margin: 0;
-        font-size: 1.45rem;
-        font-weight: 700;
-        letter-spacing: -0.02em;
-      }
-      .stack {
+      .center-wrap {
         display: grid;
-        gap: 0.95rem;
-      }
-      .header {
-        margin: 0.3rem 0 0.25rem;
-      }
-      .subhead {
-        margin: 0.15rem 0 0;
-        color: var(--on-ink-muted);
-        font-size: 0.94rem;
-      }
-      .surface {
-        background: linear-gradient(180deg, rgba(38, 36, 31, 0.86), rgba(28, 27, 25, 0.94));
-        border: 1px solid rgba(168, 162, 150, 0.15);
-        border-radius: 1.15rem;
-        padding: 0.95rem;
-        box-shadow:
-          0 18px 36px rgba(0, 0, 0, 0.28),
-          inset 0 1px 0 rgba(252, 251, 248, 0.04);
-      }
-      .actions {
-        display: flex;
-        gap: 0.6rem;
-        flex-wrap: wrap;
+        justify-items: center;
+        gap: 0.9rem;
+        width: min(28rem, 100%);
       }
       button,
       .button {
         border-radius: 999px;
-        padding: 0.68rem 1rem;
-        font-size: 0.94rem;
+        padding: 0.88rem 1.35rem;
+        font-size: 1rem;
         font-weight: 600;
         border: 1px solid transparent;
         transition: transform 0.08s ease, opacity 0.18s ease;
+        cursor: pointer;
       }
       button:active,
       .button:active {
         transform: scale(0.98);
       }
-      .button-primary {
+      #captureBtn {
         background: var(--primary-on-ink);
         color: var(--ink);
-      }
-      .button-secondary {
-        background: rgba(252, 251, 248, 0.08);
-        color: var(--on-ink);
-        border-color: rgba(252, 251, 248, 0.12);
-      }
-      .button-danger {
-        background: rgba(239, 68, 68, 0.15);
-        color: #fecaca;
-        border-color: rgba(239, 68, 68, 0.28);
+        min-width: 12.5rem;
       }
       input[type="file"] {
         display: none;
       }
-      img {
-        width: 100%;
-        border-radius: 0.95rem;
-        border: 1px solid rgba(252, 251, 248, 0.12);
-        aspect-ratio: 3 / 4;
-        object-fit: cover;
-        background: var(--ink);
-      }
-      .meta {
-        color: var(--on-ink-muted);
-        font-size: 0.87rem;
-      }
-      .hidden {
-        display: none;
-      }
       #status {
-        min-height: 1.2rem;
+        min-height: 1.3rem;
         font-size: 0.9rem;
         color: var(--on-ink-muted);
+        text-align: center;
       }
     </style>
   </head>
   <body>
-    <div class="stack">
-      <header class="header">
-        <h1>Photo Capture</h1>
-        <p class="subhead">Take a shot, send it, or discard and try again.</p>
-      </header>
-
-      <section class="surface stack">
-        <label class="button button-primary" for="cameraInput">Take Photo</label>
-        <input id="cameraInput" type="file" accept="image/*" capture="environment" />
-
-        <img id="preview" alt="Preview" class="hidden" />
-        <div id="capturedAt" class="meta hidden"></div>
-
-        <div class="actions">
-          <button id="sendBtn" class="button-primary hidden" type="button">Send to API</button>
-          <button id="discardBtn" class="button-danger hidden" type="button">Discard</button>
-          <button id="newBtn" class="button-secondary hidden" type="button">New Photo</button>
-        </div>
-
-        <div id="status"></div>
-      </section>
-
-      <div class="actions">
-        <a class="button button-secondary" href="/captures/export/zip">Download ZIP</a>
-      </div>
+    <div class="center-wrap">
+      <button id="captureBtn" type="button">Capture Photo</button>
+      <input id="cameraInput" type="file" accept="image/*" capture="environment" />
+      <div id="status"></div>
     </div>
 
     <script>
+      const captureBtn = document.getElementById("captureBtn");
       const input = document.getElementById("cameraInput");
-      const preview = document.getElementById("preview");
-      const capturedAtEl = document.getElementById("capturedAt");
-      const sendBtn = document.getElementById("sendBtn");
-      const discardBtn = document.getElementById("discardBtn");
-      const newBtn = document.getElementById("newBtn");
       const statusEl = document.getElementById("status");
-
-      let currentFile = null;
-      let capturedAt = null;
-
-      function resetCapture() {
-        currentFile = null;
-        capturedAt = null;
-        input.value = "";
-        preview.classList.add("hidden");
-        capturedAtEl.classList.add("hidden");
-        sendBtn.classList.add("hidden");
-        discardBtn.classList.add("hidden");
-        newBtn.classList.add("hidden");
-      }
 
       function showStatus(message, isError = false) {
         statusEl.textContent = message;
@@ -177,41 +87,12 @@
         });
       }
 
-      input.addEventListener("change", () => {
-        const file = input.files && input.files[0];
-        if (!file) return;
-
-        currentFile = file;
-        capturedAt = new Date().toISOString();
-        preview.src = URL.createObjectURL(file);
-        preview.classList.remove("hidden");
-        capturedAtEl.textContent = `Captured at: ${capturedAt}`;
-        capturedAtEl.classList.remove("hidden");
-        sendBtn.classList.remove("hidden");
-        discardBtn.classList.remove("hidden");
-        newBtn.classList.add("hidden");
-        showStatus("");
-      });
-
-      discardBtn.addEventListener("click", () => {
-        resetCapture();
-        showStatus("Photo discarded.");
-      });
-
-      newBtn.addEventListener("click", () => {
-        resetCapture();
-        showStatus("");
-      });
-
-      sendBtn.addEventListener("click", async () => {
-        if (!currentFile || !capturedAt) {
-          showStatus("Take a photo first.", true);
-          return;
-        }
-        sendBtn.disabled = true;
+      async function uploadCapturedPhoto(file) {
+        const capturedAt = new Date().toISOString();
+        captureBtn.disabled = true;
         showStatus("Uploading...");
         try {
-          const imageDataUrl = await fileToDataUrl(currentFile);
+          const imageDataUrl = await fileToDataUrl(file);
           const response = await fetch("/captures", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -221,15 +102,24 @@
           if (!response.ok) {
             throw new Error(payload.error || `Upload failed (${response.status})`);
           }
-          showStatus(`Uploaded: ${payload.id}`);
-          sendBtn.classList.add("hidden");
-          discardBtn.classList.add("hidden");
-          newBtn.classList.remove("hidden");
+          showStatus("Uploaded");
+          window.setTimeout(() => showStatus(""), 1200);
         } catch (error) {
           showStatus(error.message || "Upload failed.", true);
         } finally {
-          sendBtn.disabled = false;
+          input.value = "";
+          captureBtn.disabled = false;
         }
+      }
+
+      captureBtn.addEventListener("click", () => {
+        input.click();
+      });
+
+      input.addEventListener("change", async () => {
+        const file = input.files && input.files[0];
+        if (!file) return;
+        await uploadCapturedPhoto(file);
       });
     </script>
   </body>
