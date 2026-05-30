@@ -19,6 +19,7 @@ from __future__ import annotations
 import shutil
 import threading
 import time
+import traceback
 from pathlib import Path
 
 from fastapi import FastAPI, File, UploadFile
@@ -31,22 +32,34 @@ HERE = Path(__file__).resolve().parent
 OUT = HERE / "outputs"
 OUT.mkdir(exist_ok=True)
 
+
+def log(msg: str) -> None:
+    print(f"[app {time.strftime('%H:%M:%S')}] {msg}", flush=True)
+
+
 app = FastAPI(title="OpenEyes — live reconstruction")
 app.mount("/outputs", StaticFiles(directory=str(OUT)), name="outputs")
 
 _model = None
-_lock = threading.Lock()          # serialize GPU inference (one at a time)
+_load_lock = threading.Lock()     # guards one-time model load
+_infer_lock = threading.Lock()    # serializes GPU inference (one job at a time)
 
 
 def get_model():
+    """Load AnySplat once. Safe to call from many threads; loads under _load_lock."""
     global _model
-    with _lock:
-        if _model is None:
-            _model = ar.load_model()
+    if _model is None:
+        with _load_lock:
+            if _model is None:        # double-checked: only the first caller loads
+                log("loading AnySplat model (first time, ~1-2 min)...")
+                t = time.time()
+                _model = ar.load_model()
+                log(f"model ready in {time.time() - t:.0f}s — server is warm")
     return _model
 
 
 # warm the model in the background at boot so the first upload isn't slow
+log("server starting — warming model in the background")
 threading.Thread(target=get_model, daemon=True).start()
 
 
@@ -84,7 +97,7 @@ PAGE = """<!doctype html><html lang="en"><head>
      const r=await fetch('/reconstruct',{method:'POST',body:fd});
      const j=await r.json();
      if(j.video){ vid.src=j.video+'?t='+Date.now(); vid.style.display='block';
-       st.textContent='Done — your scene in 3D.'; }
+       st.textContent='Done in '+j.seconds+'s — your scene in 3D.'; }
      else st.textContent='Failed: '+(j.error||'no video produced');
    }catch(e){ st.textContent='Error: '+e; }
    go.disabled=false;
@@ -107,17 +120,34 @@ async def reconstruct(images: list[UploadFile] = File(...)):
     stamp = time.strftime("%Y%m%d_%H%M%S")
     batch_dir = OUT / stamp / "inputs"
     batch_dir.mkdir(parents=True, exist_ok=True)
-    for up in images:
-        (batch_dir / Path(up.filename or "img.jpg").name).write_bytes(await up.read())
 
+    names = []
+    for up in images:
+        name = Path(up.filename or "img.jpg").name
+        (batch_dir / name).write_bytes(await up.read())
+        names.append(name)
+    log(f"/reconstruct: received {len(names)} images {names} -> {stamp}")
+
+    if _model is None:
+        log("model still warming — this request will wait for it to finish loading")
+
+    t = time.time()
     try:
-        with _lock:                       # one GPU job at a time
-            ar.reconstruct(get_model(), batch_dir, OUT / stamp)
+        model = get_model()                 # returns cached model (loads if first call)
+        with _infer_lock:                   # one GPU job at a time
+            log(f"reconstructing {stamp} ...")
+            ar.reconstruct(model, batch_dir, OUT / stamp)
     except Exception as e:
+        log(f"✗ reconstruction failed: {e}\n{traceback.format_exc()}")
         return JSONResponse({"error": str(e)}, status_code=500)
 
     mp4s = sorted((OUT / stamp).glob("*.mp4"))
     if not mp4s:
+        log(f"✗ no .mp4 produced in {OUT / stamp} — check anysplat_recon vs demo_gradio.py")
         return JSONResponse({"error": "no video produced"}, status_code=500)
+
     shutil.copy(mp4s[0], OUT / "latest.mp4")
-    return JSONResponse({"video": f"/outputs/{stamp}/{mp4s[0].name}"})
+    secs = round(time.time() - t, 1)
+    url = f"/outputs/{stamp}/{mp4s[0].name}"
+    log(f"✅ done {stamp} in {secs}s -> {url}")
+    return JSONResponse({"video": url, "seconds": secs})
