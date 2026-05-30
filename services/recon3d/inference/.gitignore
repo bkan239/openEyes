@@ -1,0 +1,12 @@
+# Cloned upstream + isolated env (never commit these)
+AnySplat/
+.venv-anysplat/
+
+# Live I/O + generated assets
+uploads/
+outputs/
+latest.mp4
+*.ply
+
+__pycache__/
+*.pyc
