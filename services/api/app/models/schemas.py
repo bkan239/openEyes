@@ -103,6 +103,24 @@ class RegisterClipRequest(_Base):
     duration_sec: float | None = None
 
 
+# ── Simple photo capture flow ────────────────────────────────────────────────
+
+
+class CapturePhotoResponse(_Base):
+    id: str
+    media_key: str
+    captured_at: str
+    uploaded_at: str
+
+
+class CapturePhoto(_Base):
+    id: str
+    media_key: str
+    content_type: str
+    captured_at: str
+    uploaded_at: str
+
+
 # ── RSS news clustering ────────────────────────────────────────────────────
 
 

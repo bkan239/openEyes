@@ -36,7 +36,7 @@ def get_news_cluster(cluster_id: str, include_articles: bool = False) -> NewsClu
     return cluster
 
 
-def list_news_clusters(limit: int = 50, min_articles: int = 2) -> list[NewsCluster]:
+def list_news_clusters(limit: int = 50, min_articles: int = 1) -> list[NewsCluster]:
     # Fetch a wider window, then filter out weak clusters.
     # Map clients typically pass min_articles=3 for corroborated stories.
     items = scan_meta_with_pk_prefix("NEWS#CLUSTER#", limit=max(limit * 4, limit))
