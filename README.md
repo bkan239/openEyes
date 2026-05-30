@@ -144,6 +144,95 @@ Both auto-deploy from `main` via separate Vercel projects (`angles/` vs repo roo
 
 ---
 
+## Design system
+
+**"Editorial Ink" — a light theme, on purpose.** A verification product sells one
+thing: trust. A clean, bright, restrained interface reads as *serious* and
+*credible* (think a newsroom or a bank), where a dark, neon UI reads as "tool" or
+"toy." So the whole identity is built around a warm, paper-like light theme.
+
+The rule is **discipline, not decoration**:
+
+1. **One warm neutral base** — the "warmth" comes from the greys, not the accent.
+2. **A single accent** — deep petrol/teal. One chroma, nothing competing with it.
+3. **A separate status trias** — green / amber / red for verification states, kept
+   visually distinct from the brand so *brand never looks like status*. (This is
+   why a green brand was rejected: everything would look "verified.")
+4. **Dark "Ink" sections** for hero/footer/video — contrast comes from *surfaces*,
+   not from adding more colour. The dark stage also makes the `angles` video
+   panels and camera pins pop far more than white would.
+
+### Tokens
+
+```css
+:root {
+  /* — Warm neutrals (the warmth lives here, not in the accent) — */
+  --bg:             #FCFBF8;  /* app background, warm off-white            */
+  --surface:        #FFFFFF;  /* cards / panels lift off the background     */
+  --surface-sunken: #F7F5F0;  /* inset areas, code, inputs                  */
+  --border:         #ECE9E1;  /* default hairline                           */
+  --border-strong:  #DEDAD0;  /* emphasised divider                         */
+  --text:           #1C1B19;  /* ink — near-black, slightly warm (not #000) */
+  --text-muted:     #6B6862;  /* secondary text, captions                   */
+  --text-subtle:    #908B80;  /* placeholders, disabled                     */
+
+  /* — Primary: petrol / teal scale — */
+  --primary-50:     #EDF7F5;  /* tint bg: hover, active nav, badges         */
+  --primary-100:    #D2EAE5;
+  --primary-200:    #A7D6CD;
+  --primary-300:    #6FBDB0;
+  --primary-500:    #16847A;
+  --primary:        #0F766E;  /* buttons, links, focus                      */
+  --primary-hover:  #115E59;
+  --primary-press:  #134E4A;
+  --on-primary:     #FFFFFF;
+
+  /* — Status trias: each as text / tint-bg / border — */
+  --verified: #15803D;  --verified-bg: #EAF6EC;  --verified-border: #C7E6CE;
+  --pending:  #B45309;  --pending-bg:  #FBF1E3;  --pending-border:  #F0D9B5;
+  --disputed: #B91C1C;  --disputed-bg: #FBEBEB;  --disputed-border: #F2CFCF;
+
+  /* — Ink / inverse sections (hero, footer, video stage) — */
+  --ink:            #1C1B19;  /* section background                         */
+  --ink-surface:    #26241F;  /* cards on dark                              */
+  --ink-border:     #3A3833;  /* hairline on dark                          */
+  --on-ink:         #FCFBF8;  /* text on dark (= the warm off-white)        */
+  --on-ink-muted:   #A8A296;  /* secondary text on dark                     */
+  --primary-on-ink: #6FBDB0;  /* lighter teal so the accent glows on ink    */
+
+  /* — Effects (warm-tinted, never neutral grey) — */
+  --focus-ring: 0 0 0 3px rgba(15, 118, 110, .28);
+  --shadow-sm:  0 1px 2px rgba(28, 27, 25, .06);
+  --shadow-md:  0 4px 16px -4px rgba(28, 27, 25, .10);
+}
+```
+
+### Usage notes (the details that keep it clean)
+
+- **Status is never bare text.** A badge is `color: var(--verified)` on
+  `background: var(--verified-bg)` with `border: var(--verified-border)`. The tints
+  keep the chips calm and stop them clashing with the teal of buttons.
+- **Text is `#1C1B19`, not `#000`.** On a warm off-white, pure black is too harsh;
+  this still clears ~15:1 contrast (WCAG AAA).
+- **Focus rings are teal**, not browser-blue — otherwise the palette breaks at
+  every input.
+- **On dark Ink, switch the accent** to `--primary-on-ink` (lighter teal). The
+  base `--primary` sinks into the dark; the lighter tone glows instead.
+
+### Page anatomy
+
+```
+████ HERO  (Ink #1C1B19) ███████████████████████
+█  "One witness can lie. Five cannot."           █   light text · teal-300 CTA
+████████████████████████████████████████████████
+   light content  (#FCFBF8)
+   – event cards · verify flow –                     calm, readable, mono-teal
+   ✓ Verified    … Pending    ✕ Disputed             status tints
+████ FOOTER  (Ink) █████████████████████████████
+```
+
+---
+
 ## Repository structure
 
 ```
