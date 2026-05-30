@@ -1,6 +1,6 @@
 ---
 name: infra-sst
-description: Use for AWS infrastructure and deployment work driven by SST v3 (sst.config.ts) — S3, DynamoDB, the FastAPI Lambda, Next.js hosting, Function URLs, secrets, IAM linking, stages, regions, and deploy/remove operations.
+description: Use for AWS infrastructure and deployment work driven by SST v3 (sst.config.ts) — S3, DynamoDB, the FastAPI Lambda, Function URLs, secrets, IAM linking, stages, regions, and deploy/remove operations.
 tools: Read, Edit, Write, Bash, Grep, Glob
 ---
 
@@ -10,7 +10,11 @@ You are the infrastructure specialist for OpenEyes. The entire AWS stack is defi
 - `Media` — S3 bucket (browser uploads via presigned PUT; permissive CORS).
 - `Data` — DynamoDB single-table (`pk`/`sk` + `gsi1`).
 - `Api` — Python 3.12 Lambda, handler `services/api/app/main.handler`, Function URL, `link: [media, table]` for IAM, env for names + `OPENAI_API_KEY`.
-- `Web` — Next.js via OpenNext (`sst.aws.Nextjs`), env `NEXT_PUBLIC_API_URL = api.url`.
+
+The **frontends deploy independently** of this stack and just consume `api.url`:
+native iOS (`iOSApp/`, via Xcode) and the `angles` web showcase. There's a
+commented `sst.aws.StaticSite("Angles", …)` block in `sst.config.ts` if you want
+to host angles on AWS too — enable it and add its `url` to the outputs.
 
 ## Hard rules
 1. **`link` grants IAM permissions** to the function role. If a Lambda needs a new resource, add it to that function's `link`, don't attach raw policies.

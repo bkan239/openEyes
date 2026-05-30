@@ -120,15 +120,16 @@ The score is a **probability, not a verdict**. Corroboration drastically lowers 
 
 ## Tech stack
 
-The stack chosen for the hackathon build:
+A shared AWS backend with several independent frontend clients:
 
-- **Frontend / hub + capture:** Next.js (App Router) + Tailwind, hosted on AWS (OpenNext). Capture/upload runs as a PWA in the browser.
+- **Capture (native):** iOS / SwiftUI app — on-device hashing + Secure Enclave signing.
+- **Web showcase:** `angles` — Vite + React + MapLibre GL (the multi-angle map view).
 - **Backend / API:** Python (FastAPI) on AWS Lambda (via Mangum), behind a Function URL.
-- **AI verification:** OpenAI vision model for the per-clip manipulation signal + metadata checks.
+- **Shared model:** TypeScript types + trust-score logic in `packages/shared`, mirrored by the API and clients.
+- **AI verification:** OpenAI for the per-clip manipulation signal + metadata checks.
 - **Audio sync:** time/geo clustering now; audio fingerprinting (chromaprint-style) next.
 - **Storage:** Amazon S3 for media, Amazon DynamoDB for events/clips/sources.
-- **Infrastructure:** SST v3 (Ion) — one TypeScript definition deploys all of the above to AWS.
-- **Monorepo:** pnpm workspaces + Turborepo.
+- **Infrastructure:** SST v3 (Ion) — one TypeScript definition provisions the backend on AWS.
 
 See [`DEVELOPMENT.md`](./DEVELOPMENT.md) for setup and the day-to-day workflow.
 
@@ -138,19 +139,19 @@ See [`DEVELOPMENT.md`](./DEVELOPMENT.md) for setup and the day-to-day workflow.
 
 ```
 openeyes/
-├── apps/
-│   └── web/            # Next.js hub + PWA capture/upload
+├── iOSApp/             # native SwiftUI capture client (hardware-signed)
+├── angles/             # Vite + MapLibre web showcase (multi-angle map)
 ├── services/
 │   └── api/            # FastAPI on Lambda: verify · cluster · trust · storage
 ├── packages/
-│   └── shared/         # shared TS types + trust-score logic
-├── sst.config.ts       # AWS infrastructure (SST v3): S3, DynamoDB, Lambda, hosting
+│   └── shared/         # canonical TS data model + trust-score logic
+├── sst.config.ts       # AWS backend infra (SST v3): S3, DynamoDB, API Lambda
 └── DEVELOPMENT.md      # setup & day-to-day workflow
 ```
 
-The heavier services from the original plan (multi-angle matching, 3D
-reconstruction) will land under `services/` as they're built; for the demo the
-verify / cluster / trust logic lives inside `services/api`.
+Multiple frontends share one backend + data model. The heavier pipeline pieces
+from the original plan (3D reconstruction, richer multi-angle matching) grow out
+of `services/` and `angles` as they're built.
 
 ---
 

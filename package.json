@@ -9,8 +9,9 @@
   },
   "scripts": {
     "dev": "sst dev",
-    "web:dev": "pnpm --filter @openeyes/web dev",
     "api:dev": "cd services/api && uv run uvicorn app.main:app --reload --port 8000",
+    "angles:dev": "cd angles && npm run dev",
+    "angles:build": "cd angles && npm run build",
     "build": "turbo build",
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",

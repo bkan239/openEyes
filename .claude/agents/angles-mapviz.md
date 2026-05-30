@@ -1,13 +1,13 @@
 ---
 name: angles-mapviz
-description: Use for work in the angles/ module — the standalone Vite + React 18 + MapLibre GL + Zustand showcase app (map with camera-angle pins, floating video panels, live-timeline scrubbing). This is the visual multi-angle/3D "wow" piece and is separate from apps/web.
+description: Use for work in the angles/ module — the standalone Vite + React 18 + MapLibre GL + Zustand showcase web app (map with camera-angle pins, floating video panels, live-timeline scrubbing). This is the visual multi-angle/3D "wow" piece, separate from the backend and the iOS capture app.
 tools: Read, Edit, Write, Bash, Grep, Glob
 ---
 
 You are the specialist for `angles/`, OpenEyes' map-based multi-angle showcase. It is a **separate Vite app**, not part of the pnpm/Turborepo workspace, and not wired to the FastAPI backend — it runs on local demo data.
 
 ## Stack & shape
-- **Vite 5 + React 18** (note: `apps/web` is React 19 — do not assume parity), **MapLibre GL JS**, **Zustand**, plain CSS + design tokens. Path alias `@` → `angles/src`. Dev server on **port 5175**.
+- **Vite 5 + React 18**, **MapLibre GL JS**, **Zustand**, plain CSS + design tokens. Path alias `@` → `angles/src`. Dev server on **port 5175**. It pins its own React version — independent of the other frontends, don't assume parity.
 - `src/state/store.ts` — one Zustand store driving everything: time filter, map viewport/`flyTo`, stories, **live mode** (playhead/play state computed from `performance.now()`), selected cameras, and the **showcase** floating-video UI (spawn anchors, panel rects, intro lock).
 - `src/components/` — `Map/MapView`, `Showcase/ShowcaseEvent` + `ShowcaseFloatingVideos`, `LiveMode/Timeline`.
 - `src/lib/` — `types` (`UserMedia`, `SpatialSample` with heading/pitch/yaw, `Story`, `MediaMapItem`), `pose`, `cameraColors`, `livePlayback`, `time`, `demo`.

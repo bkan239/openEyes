@@ -5,9 +5,10 @@ description: Keep the OpenEyes data model and trust-score in sync across TypeScr
 
 # Schema parity (TS ↔ Python)
 
-OpenEyes deliberately defines its domain model **twice** so both the Next.js
-frontend and the FastAPI backend can own it. The two copies MUST stay identical
-in meaning. JSON on the wire is **camelCase**.
+OpenEyes deliberately defines its domain model in **TypeScript and Python** so
+the frontends and the FastAPI backend share one model. `packages/shared` is the
+canonical TS definition; the frontends (native iOS via `Codable`, the `angles`
+web app) and the API must all match it. JSON on the wire is **camelCase**.
 
 ## The two pairs
 
@@ -21,8 +22,8 @@ in meaning. JSON on the wire is **camelCase**.
 1. Edit **both** `types.ts` and `schemas.py`. Field names: camelCase in TS;
    snake_case in Python (the `to_camel` alias generator + `populate_by_name`
    make it camelCase on the wire — so `received_at` ↔ `receivedAt`).
-2. If the field is user-facing, thread it through `apps/web` (the API client in
-   `lib/api.ts`, the components that render it) and the relevant FastAPI router.
+2. If the field is user-facing, thread it through the relevant FastAPI router and
+   any frontend that consumes it (the iOS `Codable` models, the `angles` client).
 3. Keep optionality identical (`field?: T` ↔ `field: T | None = None`).
 
 ## When you change the trust score
@@ -38,7 +39,6 @@ in meaning. JSON on the wire is **camelCase**.
 
 ```bash
 pnpm --filter @openeyes/shared typecheck
-pnpm --filter @openeyes/web typecheck
 cd services/api && uv run pytest -q
 ```
 

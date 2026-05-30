@@ -1,7 +1,8 @@
 /**
- * Core domain model for OpenEyes, shared between the Next.js web app and any
- * TypeScript tooling. The FastAPI backend mirrors these shapes in
- * `services/api/app/models/schemas.py` — keep the two in sync.
+ * Core domain model for OpenEyes — the canonical TypeScript definition of the
+ * data model. The FastAPI backend mirrors these shapes in
+ * `services/api/app/models/schemas.py`, and the frontends (iOS, angles) match
+ * them too — keep them in sync.
  *
  * Field naming is camelCase on the wire (the API serialises with camelCase
  * aliases), so these types describe the JSON exactly as the frontend sees it.

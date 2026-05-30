@@ -1,5 +1,6 @@
-# JS/TS workspaces. The FastAPI backend in services/api is a Python project
-# managed by uv and is intentionally NOT a pnpm workspace.
+# pnpm/TS workspaces. The other apps are intentionally independent:
+#   - services/api  Python (uv)
+#   - iOSApp        native SwiftUI (Xcode)
+#   - angles        Vite app with its own npm/package-lock
 packages:
-  - "apps/*"
   - "packages/*"

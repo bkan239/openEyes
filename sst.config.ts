@@ -7,7 +7,10 @@
  *   - Media        S3 bucket for uploaded clips (browser uploads via presigned URLs)
  *   - Data         DynamoDB single-table store for events / clips / sources
  *   - Api          FastAPI on AWS Lambda (Python, via Mangum), exposed as a Function URL
- *   - Web          Next.js hub hosted on AWS (OpenNext: Lambda + CloudFront + S3)
+ *
+ * The frontends are deployed separately and all consume this API + bucket:
+ * native iOS (iOSApp/, via Xcode/TestFlight) and the angles web showcase
+ * (angles/). See the optional StaticSite block below to host angles on AWS too.
  *
  * Secrets are NOT committed. Set the OpenAI key once per stage:
  *   pnpm sst secret set OpenAiApiKey sk-...
@@ -78,19 +81,24 @@ export default $config({
       },
     });
 
-    // --- Frontend: Next.js hub (hosted on AWS via OpenNext) -----------------
-    const web = new sst.aws.Nextjs("Web", {
-      path: "apps/web",
-      environment: {
-        NEXT_PUBLIC_API_URL: api.url,
-      },
-    });
+    // --- Frontends ----------------------------------------------------------
+    // OpenEyes has multiple, independently-deployed frontends, all talking to
+    // the API + S3 above:
+    //   - iOSApp/  native SwiftUI capture client — ships via Xcode/TestFlight
+    //   - angles/  Vite + MapLibre web showcase — deploy separately, or host it
+    //              on AWS by uncommenting the StaticSite below.
+    //
+    // const angles = new sst.aws.StaticSite("Angles", {
+    //   path: "angles",
+    //   build: { command: "npm install && npm run build", output: "dist" },
+    //   environment: { VITE_API_URL: api.url },
+    // });
 
     return {
-      web: web.url,
       api: api.url,
       bucket: media.name,
       table: table.name,
+      // angles: angles.url,
     };
   },
 });

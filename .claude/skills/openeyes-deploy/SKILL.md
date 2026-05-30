@@ -1,13 +1,15 @@
 ---
 name: openeyes-deploy
-description: Deploy the OpenEyes stack (Next.js hub + FastAPI Lambda + S3 + DynamoDB) to AWS using SST v3. Use when the user wants to deploy OpenEyes, ship to a stage, set up a preview/personal stage, run sst dev, rotate the OpenAI secret, or tear a stage down. This is the AWS/SST deploy path — NOT Vercel.
+description: Deploy the OpenEyes backend (FastAPI Lambda + S3 + DynamoDB) to AWS using SST v3. Use when the user wants to deploy OpenEyes, ship to a stage, set up a preview/personal stage, run sst dev, rotate the OpenAI secret, or tear a stage down. This is the AWS/SST deploy path — NOT Vercel. Frontends (iOS, angles) deploy separately.
+
 ---
 
 # Deploy OpenEyes (SST → AWS)
 
-Everything is one SST app defined in `sst.config.ts`. There is no separate
-frontend/backend deploy — SST provisions S3, DynamoDB, the FastAPI Lambda and the
-Next.js hosting together.
+The **backend** is one SST app defined in `sst.config.ts`: SST provisions S3,
+DynamoDB and the FastAPI Lambda together. The frontends deploy independently —
+iOS via Xcode/TestFlight, `angles` via any static host (or the optional
+`StaticSite` block in `sst.config.ts`).
 
 ## Preflight
 
@@ -23,7 +25,7 @@ Next.js hosting together.
 ## Deploy
 
 ```bash
-# Live dev stage (hot-reloaded Lambda + Next.js wired to the real API):
+# Live dev stage (hot-reloaded FastAPI Lambda + provisioned S3/DynamoDB):
 pnpm dev                 # = sst dev
 
 # Persistent deploy to your personal/default stage:
@@ -37,11 +39,11 @@ Review changes first with `npx sst diff` when touching `sst.config.ts`.
 
 ## After deploy
 
-SST prints outputs: `web`, `api`, `bucket`, `table`. Smoke-test:
+SST prints outputs: `api`, `bucket`, `table`. Smoke-test:
 ```bash
 curl <api-output>/health        # -> {"ok": true}
 ```
-Open the `web` URL and try the capture → events flow.
+Then point a frontend (iOS / angles) at the `api` URL and try the capture flow.
 
 ## Tear down
 
