@@ -101,3 +101,37 @@ class RegisterClipRequest(_Base):
     clip_id: str
     signature: str | None = None
     duration_sec: float | None = None
+
+
+# ── RSS news clustering ────────────────────────────────────────────────────
+
+
+class NewsArticle(_Base):
+    id: str
+    cluster_id: str
+    title: str
+    url: str
+    source_name: str
+    summary: str | None = None
+    published_at: str
+    image_url: str | None = None
+
+
+class NewsCluster(_Base):
+    id: str
+    title: str
+    summary: str
+    location: GeoPoint
+    occurred_at: str
+    created_at: str
+    image_url: str | None = None
+    article_count: int
+    source_count: int
+    articles: list[NewsArticle] | None = None
+
+
+class NewsIngestResponse(_Base):
+    articles_fetched: int
+    clusters_created: int
+    clusters_updated: int
+    duration_sec: float

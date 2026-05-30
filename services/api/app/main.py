@@ -8,12 +8,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from mangum import Mangum
 
+from app.routers import news
+
 app = FastAPI(
     title="OpenEyes API",
     version="0.1.0",
-    docs_url=None,
-    redoc_url=None,
-    openapi_url=None,
 )
 
 app.add_middleware(
@@ -22,6 +21,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(news.router)
 
 
 @app.get("/health")

@@ -27,6 +27,12 @@ class Settings(BaseSettings):
     # OpenAI — verification model. Empty key -> verification runs in mock mode.
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
+    openai_embedding_model: str = "text-embedding-3-small"
+
+    # Cosine similarity threshold for grouping articles into one story cluster.
+    news_cluster_similarity_threshold: float = 0.78
+    # Cap articles per ingest run to control cost and latency.
+    news_max_articles_per_run: int = 150
 
     # Comma-separated allowed origins, or "*".
     cors_origins: str = "*"

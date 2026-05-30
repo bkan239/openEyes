@@ -24,10 +24,13 @@ export default $config({
       handler: "services/api/app/main.handler",
       runtime: "python3.12",
       url: true,
-      timeout: "10 seconds",
-      memory: "256 MB",
+      timeout: "5 minutes",
+      memory: "512 MB",
       environment: {
         STAGE: $app.stage,
+        OPENAI_API_KEY: process.env.OPENAI_API_KEY ?? "",
+        DATA_TABLE: process.env.DATA_TABLE ?? "openeyes-dev-data",
+        AWS_REGION: "us-west-1",
       },
     });
 

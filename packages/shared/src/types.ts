@@ -122,3 +122,42 @@ export interface RegisterClipRequest {
   signature?: string;
   durationSec?: number;
 }
+
+// ── RSS news clustering ───────────────────────────────────────────────────
+
+/** A single article ingested from an RSS feed. */
+export interface NewsArticle {
+  id: string;
+  clusterId: string;
+  title: string;
+  url: string;
+  sourceName: string;
+  summary?: string;
+  publishedAt: string;
+  imageUrl?: string;
+}
+
+/** A cluster of related news articles about one real-world story. */
+export interface NewsCluster {
+  id: string;
+  title: string;
+  /** LLM-generated summary of what happened. */
+  summary: string;
+  location: GeoPoint;
+  /** When the underlying event is believed to have occurred. */
+  occurredAt: string;
+  /** When this cluster was created by the pipeline. */
+  createdAt: string;
+  imageUrl?: string;
+  articleCount: number;
+  sourceCount: number;
+  /** Populated on detail fetches only. */
+  articles?: NewsArticle[];
+}
+
+export interface NewsIngestResponse {
+  articlesFetched: number;
+  clustersCreated: number;
+  clustersUpdated: number;
+  durationSec: number;
+}

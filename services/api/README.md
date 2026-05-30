@@ -71,6 +71,27 @@ uv run uvicorn app.main:app --reload --port 8000
 curl http://localhost:8000/health
 ```
 
+## RSS news clustering
+
+Manually triggered pipeline that ingests western RSS feeds, clusters articles
+with OpenAI embeddings, enriches each cluster (summary, location, time, image),
+and stores results in DynamoDB.
+
+```bash
+# Trigger ingest (may take 1–3 minutes depending on article count)
+curl -X POST http://localhost:8000/news/ingest
+
+# List clusters (newest first)
+curl http://localhost:8000/news/clusters
+
+# Cluster detail with source articles
+curl http://localhost:8000/news/clusters/<cluster-id>
+```
+
+Requires `OPENAI_API_KEY` for real embeddings and summaries (falls back to
+deterministic pseudo-embeddings without it). Requires DynamoDB table
+`DATA_TABLE` (default `openeyes-dev-data`).
+
 ## Deploy on AWS (optional)
 
 Lambda + Function URL via SST or `./scripts/deploy-api.sh`. See root `sst.config.ts` and `scripts/deploy-api.sh`. Requires IAM permissions on your AWS user.

@@ -1,10 +1,14 @@
 """Persistence: S3 for media bytes, DynamoDB single-table for metadata.
 
 Single-table key design:
-    pk = CLIP#<id>        sk = META               -> a clip
-    pk = EVENT#<id>       sk = META               -> an event
-    pk = EVENT#<id>       sk = CLIP#<id>          -> clip-in-event membership
-    gsi1pk = STATUS#<s>   gsi1sk = OCCURRED#<ts>  -> list events by status
+    pk = CLIP#<id>            sk = META               -> a clip
+    pk = EVENT#<id>           sk = META               -> an event
+    pk = EVENT#<id>           sk = CLIP#<id>          -> clip-in-event membership
+    pk = NEWS#CLUSTER#<id>    sk = META               -> RSS news cluster
+    pk = NEWS#CLUSTER#<id>    sk = ARTICLE#<id>       -> article in cluster
+    pk = NEWS#ARTICLE#<id>    sk = META               -> article index
+    gsi1pk = STATUS#<s>       gsi1sk = OCCURRED#<ts>  -> list events by status
+    gsi1pk = NEWS#CLUSTER     gsi1sk = OCCURRED#<ts>  -> list news clusters by time
 """
 
 import json
