@@ -16,7 +16,7 @@ def ingest_news() -> NewsIngestResponse:
 
 
 @router.get("/clusters", response_model=list[NewsCluster])
-def list_clusters(limit: int = 50, min_articles: int = 2) -> list[NewsCluster]:
+def list_clusters(limit: int = 50, min_articles: int = 1) -> list[NewsCluster]:
     return news_storage.list_news_clusters(limit=limit, min_articles=min_articles)
 
 
