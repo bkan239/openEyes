@@ -39,5 +39,13 @@ pnpm-debug.log*
 .vscode/*
 !.vscode/extensions.json
 
+# Claude Code — personal settings only (shared agents/skills ARE committed)
+.claude/settings.local.json
+.claude/*.local.json
+
+# Skills CLI artifacts (we vendor skills under .claude/skills instead)
+.agents/
+skills-lock.json
+
 # Local media test fixtures (uploaded clips)
 /tmp-media/
