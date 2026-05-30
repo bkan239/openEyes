@@ -7,15 +7,29 @@ Single-table key design:
     gsi1pk = STATUS#<s>   gsi1sk = OCCURRED#<ts>  -> list events by status
 """
 
+import json
+from decimal import Decimal
 from typing import Any
 
-from boto3.dynamodb.conditions import Key
+from boto3.dynamodb.conditions import Attr
+from pydantic import BaseModel
 
 from app.core.aws import dynamo_table, s3_client
 from app.core.config import settings
 from app.models.schemas import Clip, Event
 
 UPLOAD_URL_TTL = 900  # seconds
+
+
+def _to_item(model: BaseModel) -> dict[str, Any]:
+    """Serialise a Pydantic model for DynamoDB.
+
+    The boto3 resource client rejects Python ``float`` ("Float types are not
+    supported. Use Decimal types instead."), so we round-trip through JSON with
+    ``parse_float=Decimal`` to turn every number into a ``Decimal``. Keys stay
+    snake_case (field names), matching how we read items back.
+    """
+    return json.loads(model.model_dump_json(), parse_float=Decimal)
 
 
 # ── Media (S3) ────────────────────────────────────────────────────────────
@@ -50,12 +64,9 @@ def presigned_get_url(media_key: str) -> str:
 
 
 def put_clip(clip: Clip) -> None:
-    item: dict[str, Any] = {
-        "pk": f"CLIP#{clip.id}",
-        "sk": "META",
-        **clip.model_dump(mode="json"),
-    }
-    dynamo_table().put_item(Item=item)
+    dynamo_table().put_item(
+        Item={"pk": f"CLIP#{clip.id}", "sk": "META", **_to_item(clip)}
+    )
 
 
 def get_clip(clip_id: str) -> Clip | None:
@@ -72,14 +83,13 @@ def update_clip(clip: Clip) -> None:
 
 
 def put_event(event: Event) -> None:
-    table = dynamo_table()
-    table.put_item(
+    dynamo_table().put_item(
         Item={
             "pk": f"EVENT#{event.id}",
             "sk": "META",
             "gsi1pk": f"STATUS#{event.status}",
             "gsi1sk": f"OCCURRED#{event.occurred_at}",
-            **event.model_dump(mode="json"),
+            **_to_item(event),
         }
     )
 
@@ -93,7 +103,7 @@ def get_event(event_id: str) -> Event | None:
 def list_events(limit: int = 50) -> list[Event]:
     # Simple scan for the hackathon. Swap for a gsi1 query per status at scale.
     res = dynamo_table().scan(
-        FilterExpression=Key("sk").eq("META") & Key("pk").begins_with("EVENT#"),
+        FilterExpression=Attr("sk").eq("META") & Attr("pk").begins_with("EVENT#"),
         Limit=limit,
     )
     return [Event.model_validate(i) for i in res.get("Items", [])]
