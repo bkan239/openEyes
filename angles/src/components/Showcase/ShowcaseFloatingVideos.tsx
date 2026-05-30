@@ -2,8 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperti
 import { useApp } from "@/state/store";
 import type { UserMedia } from "@/lib/types";
 import { clipDurationMs, clipOffsetSecondsFromWall, DEFAULT_CLIP_SECONDS } from "@/lib/livePlayback";
-import { mapPinThumbnailUrl } from "@/lib/demo";
-import { subscribeVideoPreload, getVideoPreloadState, type VideoPreloadState } from "@/lib/videoPreload";
+import { loadPrettiMedia, mapPinThumbnailUrl, PRETTI_STORY_ID } from "@/lib/demo";
 import { cameraAccentColor } from "@/lib/cameraColors";
 import {
   computeSpawnRect,
@@ -11,6 +10,23 @@ import {
   panelHeightPx,
   showcasePanelOuterHeight
 } from "@/components/Showcase/spawnPanelRect";
+
+const blobCache: Record<string, string> = {};
+const blobPromiseCache: Record<string, Promise<string>> = {};
+
+async function toBlobURL(src: string): Promise<string> {
+  if (blobCache[src]) return blobCache[src];
+  if (!blobPromiseCache[src]) {
+    blobPromiseCache[src] = fetch(src)
+      .then((resp) => resp.blob())
+      .then((blob) => {
+        const url = URL.createObjectURL(blob);
+        blobCache[src] = url;
+        return url;
+      });
+  }
+  return blobPromiseCache[src];
+}
 
 const VIDEO_EXT = /\.(mp4|mov|m4v|webm)(\?|$)/i;
 
@@ -96,12 +112,6 @@ function clampPanel(rect: {
   };
 }
 
-function useVideoPreloadState(): VideoPreloadState {
-  const [preload, setPreload] = useState(getVideoPreloadState);
-  useEffect(() => subscribeVideoPreload(setPreload), []);
-  return preload;
-}
-
 export function ShowcaseFloatingVideos() {
   const showcaseOpen = useApp((s) => s.showcaseVideoOpen);
   const setShowcaseVideoOpen = useApp((s) => s.setShowcaseVideoOpen);
@@ -113,17 +123,43 @@ export function ShowcaseFloatingVideos() {
   const prettiOverlayItems = useApp((s) => s.prettiOverlayItems);
   const storyMediaCache = useApp((s) => s.storyMediaCache);
   const selectedCameraIds = useApp((s) => s.selectedCameraIds);
-  const videoPreload = useVideoPreloadState();
 
   const hydrated = useMemo(() => {
     const map: Record<string, UserMedia> = {};
     for (const m of prettiOverlayItems) map[m.id] = m;
-    for (const m of Object.values(storyMediaCache).flat()) map[m.id] = m;
+    const cached = storyMediaCache[PRETTI_STORY_ID];
+    if (cached) {
+      for (const m of cached) map[m.id] = m;
+    }
     return map;
   }, [prettiOverlayItems, storyMediaCache]);
 
+  const [blobURLs, setBlobURLs] = useState<Record<string, string>>({});
+  const [blobFailed, setBlobFailed] = useState<Record<string, boolean>>({});
   /** Stays below demo HUD (~94–96) so timeline / map chrome stay clickable */
   const floatZPeak = useRef(50);
+
+  useEffect(() => {
+    let cancel = false;
+    loadPrettiMedia()
+      .then((items) => {
+        items
+          .filter((m) => VIDEO_EXT.test(m.file_url))
+          .forEach((m) => {
+            toBlobURL(m.file_url)
+              .then((url) => {
+                if (!cancel) setBlobURLs((prev) => ({ ...prev, [m.id]: url }));
+              })
+              .catch(() => {
+                if (!cancel) setBlobFailed((prev) => ({ ...prev, [m.id]: true }));
+              });
+          });
+      })
+      .catch(() => {});
+    return () => {
+      cancel = true;
+    };
+  }, []);
 
   const openCameraIdsKey = selectedCameraIds.filter((id) => showcaseOpen[id]).join("|");
   const openIds = selectedCameraIds.filter((id) => showcaseOpen[id]);
@@ -204,8 +240,7 @@ export function ShowcaseFloatingVideos() {
         const rect = showcasePanelRect[id];
         if (!m || !rect) return null;
         const isVideo = VIDEO_EXT.test(m.file_url);
-        const videoSrc = isVideo ? m.file_url : null;
-        const videoWarming = isVideo && !videoPreload.readyIds.has(id);
+        const videoSrc = isVideo ? blobURLs[id] ?? (blobFailed[id] ? m.file_url : null) : null;
 
         return (
           <FloatingPanel
@@ -215,7 +250,6 @@ export function ShowcaseFloatingVideos() {
             rect={rect}
             accentColor={cameraAccentColor(id)}
             videoSrc={videoSrc}
-            videoWarming={videoWarming}
             isVideo={isVideo}
             bumpGlobalZ={bumpGlobalZ}
             onClose={() => {
@@ -235,7 +269,6 @@ function FloatingPanel(props: {
   rect: { left: number; top: number; width: number; height: number };
   accentColor: string;
   videoSrc: string | null;
-  videoWarming: boolean;
   isVideo: boolean;
   bumpGlobalZ: () => number;
   onClose: () => void;
@@ -648,44 +681,24 @@ function FloatingPanel(props: {
               backgroundPosition: "center"
             }}
           >
-            Photo
+            {props.isVideo ? (!props.videoSrc ? "Caching…" : "") : "Photo"}
           </div>
         ) : (
-          <>
-            <video
-              ref={videoRef}
-              src={props.videoSrc}
-              muted
-              playsInline
-              preload="auto"
-              poster={thumbUrl || undefined}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "contain",
-                display: "block"
-              }}
-            />
-            {props.videoWarming && (
-              <div
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  background: "rgba(0,0,0,0.35)",
-                  color: "rgba(255,255,255,0.88)",
-                  fontSize: 11,
-                  fontWeight: 600,
-                  letterSpacing: 0.02,
-                  pointerEvents: "none"
-                }}
-              >
-                Loading clip…
-              </div>
-            )}
-          </>
+          <video
+            ref={videoRef}
+            src={props.videoSrc}
+            muted
+            playsInline
+            preload="auto"
+            crossOrigin="anonymous"
+            poster={thumbUrl || undefined}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",
+              display: "block"
+            }}
+          />
         )}
 
         {( ["nw", "ne", "sw", "se"] as const).map((corner) => (
