@@ -5,8 +5,6 @@
   "framework": null,
   "rewrites": [
     { "source": "/health", "destination": "/api/health" },
-    { "source": "/docs", "destination": "/docs/index.html" },
-    { "source": "/docs/:path*", "destination": "/docs/:path*" },
-    { "source": "/", "destination": "/docs/index.html" }
+    { "source": "/", "destination": "/api/health" }
   ]
 }
