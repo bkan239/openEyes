@@ -66,6 +66,9 @@ def main() -> None:
     # train
     ap.add_argument("--iterations", type=int, default=15000)
     ap.add_argument("--method", default="splatfacto", choices=["splatfacto", "splatfacto-big"])
+    ap.add_argument("--fast", action="store_true",
+                    help="speed preset for live demos: ~2k iters + capped Gaussian growth "
+                         "+ quick render. Trades some sharpness for a ~1-2 min splat.")
     # render / trajectory (the variability surface)
     ap.add_argument("--frame-rate", type=int, default=30)
     ap.add_argument("--interpolation-steps", type=int, default=30,
@@ -80,6 +83,17 @@ def main() -> None:
     ap.add_argument("--skip-recon", action="store_true", help="reuse existing <out>/nerfstudio")
     ap.add_argument("--skip-train", action="store_true", help="reuse existing trained splat")
     args = ap.parse_args()
+
+    # --fast preset: only override values the user left at their defaults.
+    train_extra: list[str] = []
+    if args.fast:
+        if args.iterations == 15000:
+            args.iterations = 2000
+        if args.interpolation_steps == 30:
+            args.interpolation_steps = 20
+        # cap Gaussian growth -> faster iters AND faster render
+        train_extra = ["--pipeline.model.stop-split-at", "1200",
+                       "--pipeline.model.densify-grad-thresh", "0.0015"]
 
     out = Path(args.out)
     ns_data = out / "nerfstudio"
@@ -123,7 +137,7 @@ def main() -> None:
             "--max-num-iterations", str(args.iterations),
             "--output-dir", str(out / "nerf"),
             "--experiment-name", "run", "--timestamp", "splat",
-            "--viewer.quit-on-train-completion", "True"])
+            "--viewer.quit-on-train-completion", "True"] + train_extra)
     if not config.exists():
         raise SystemExit(f"No trained splat config at {config} — run without --skip-train first.")
 
