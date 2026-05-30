@@ -11,6 +11,7 @@ import {
   prettiItemsBounds
 } from "@/lib/demo";
 import { endOfDay } from "@/lib/time";
+import { preloadDemoVideos, subscribeVideoPreload, type VideoPreloadState } from "@/lib/videoPreload";
 
 /** Opening establishing shot — urban context (was continental ~11). */
 const INTRO_WIDE_ZOOM = 15.6;
@@ -59,6 +60,12 @@ export function ShowcaseEvent() {
   const toggleShowcaseFloatingVideosHidden = useApp((s) => s.toggleShowcaseFloatingVideosHidden);
 
   const [mediaLoaded, setMediaLoaded] = useState(false);
+  const [videoPreload, setVideoPreload] = useState<VideoPreloadState>({
+    total: 0,
+    ready: 0,
+    readyIds: new Set(),
+    complete: true
+  });
   const surfaceReady = mediaLoaded && showcaseMapReady;
 
   const introTimers = useRef<number[]>([]);
@@ -80,6 +87,8 @@ export function ShowcaseEvent() {
       setLivePlaying(false);
     };
   }, [resetShowcaseUi, setLiveMode, setLivePlaying, setShowcaseMapReady]);
+
+  useEffect(() => subscribeVideoPreload(setVideoPreload), []);
 
   useEffect(() => {
     let cancelled = false;
@@ -105,6 +114,14 @@ export function ShowcaseEvent() {
       cancelled = true;
     };
   }, [setPrettiOverlayItems, setRange, setSelectedStoryId, setStoryMedia]);
+
+  /** Start clip warm-up only after map + metadata are ready — avoids competing with tile loads on the splash screen. */
+  useEffect(() => {
+    if (!surfaceReady) return;
+    const items = useApp.getState().prettiOverlayItems;
+    if (!items.length) return;
+    return preloadDemoVideos(items);
+  }, [surfaceReady]);
 
   useEffect(() => {
     if (!surfaceReady) return;
@@ -253,6 +270,32 @@ export function ShowcaseEvent() {
                   : "Finishing map tiles and incident layers…"}
               </div>
             </div>
+          </div>
+        )}
+
+        {surfaceReady && !videoPreload.complete && videoPreload.total > 0 && (
+          <div
+            role="status"
+            aria-live="polite"
+            style={{
+              position: "absolute",
+              left: 16,
+              bottom: liveMode ? 88 : 16,
+              zIndex: 95,
+              padding: "8px 12px",
+              borderRadius: 999,
+              border: "1px solid rgba(255,255,255,0.12)",
+              background: "rgba(8,12,18,0.78)",
+              backdropFilter: "blur(12px)",
+              WebkitBackdropFilter: "blur(12px)",
+              color: "rgba(255,255,255,0.82)",
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: 0.02,
+              boxShadow: "0 8px 24px rgba(0,0,0,0.35)"
+            }}
+          >
+            Loading clips {videoPreload.ready}/{videoPreload.total}
           </div>
         )}
 
