@@ -49,6 +49,109 @@ def _mean_embedding(vectors: list[list[float]]) -> list[float]:
     return [s / len(vectors) for s in sums]
 
 
+def _parse_iso_dt(value: str) -> datetime:
+    """Parse ISO datetime with sane fallback."""
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(UTC)
+    except ValueError:
+        return datetime.now(tz=UTC)
+
+
+def _group_latest_datetime(group: ArticleGroup) -> datetime:
+    return max(_parse_iso_dt(item.raw.published_at) for item in group.articles)
+
+
+def _title_tokens(group: ArticleGroup) -> set[str]:
+    tokens: set[str] = set()
+    for item in group.articles[:8]:
+        for tok in re.findall(r"[a-z0-9]{4,}", item.raw.title.lower()):
+            tokens.add(tok)
+    return tokens
+
+
+def _jaccard(a: set[str], b: set[str]) -> float:
+    if not a or not b:
+        return 0.0
+    inter = len(a & b)
+    union = len(a | b)
+    return inter / union if union else 0.0
+
+
+def _title_entities(group: ArticleGroup) -> set[str]:
+    """Extract coarse entity-like tokens from headlines (fallback heuristic)."""
+    entities: set[str] = set()
+    for item in group.articles[:8]:
+        text = item.raw.title
+        # Keep capitalized word runs: e.g. "Kanye West", "United Nations".
+        for m in re.findall(r"\b(?:[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b", text):
+            if len(m) >= 4:
+                entities.add(m.lower())
+    return entities
+
+
+def _entity_overlap(group_a: ArticleGroup, group_b: ArticleGroup) -> float:
+    return _jaccard(_title_entities(group_a), _title_entities(group_b))
+
+
+def _merge_related_groups(
+    groups: list[ArticleGroup],
+    sim_threshold: float,
+) -> list[ArticleGroup]:
+    """Second-pass merge to collapse obvious near-duplicate story clusters."""
+    if len(groups) < 2:
+        return groups
+
+    # Slightly more permissive than first-pass assignment, but bounded.
+    merge_similarity = max(0.62, sim_threshold - 0.02)
+    max_time_gap_seconds = 24 * 3600
+    title_overlap_threshold = 0.28
+
+    merged = groups[:]
+    changed = True
+    while changed:
+        changed = False
+        i = 0
+        while i < len(merged):
+            j = i + 1
+            while j < len(merged):
+                a = merged[i]
+                b = merged[j]
+                centroid_sim = cosine_similarity(a.centroid, b.centroid)
+                dt_gap = abs(
+                    (_group_latest_datetime(a) - _group_latest_datetime(b)).total_seconds()
+                )
+                title_overlap = _jaccard(_title_tokens(a), _title_tokens(b))
+                entity_overlap = _entity_overlap(a, b)
+
+                should_merge = (
+                    dt_gap <= max_time_gap_seconds
+                    and (
+                        (centroid_sim >= merge_similarity and (title_overlap >= 0.12 or entity_overlap >= 0.12))
+                        or title_overlap >= title_overlap_threshold
+                        or entity_overlap >= 0.24
+                    )
+                )
+
+                if should_merge:
+                    # Guardrail: avoid runaway mega-clusters unless both semantic
+                    # and lexical similarity are strong.
+                    combined_size = len(a.articles) + len(b.articles)
+                    if (
+                        combined_size > 25
+                        and (centroid_sim < 0.78 or max(title_overlap, entity_overlap) < 0.2)
+                    ):
+                        j += 1
+                        continue
+                    a.articles.extend(b.articles)
+                    a.centroid = _mean_embedding([x.embedding for x in a.articles])
+                    merged.pop(j)
+                    changed = True
+                else:
+                    j += 1
+            i += 1
+    return merged
+
+
 def _pseudo_embedding(text: str, dim: int = 64) -> list[float]:
     """Deterministic fallback when OpenAI embeddings are unavailable."""
     tokens = re.findall(r"[a-z0-9]+", text.lower())
@@ -65,7 +168,9 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
     if not texts:
         return []
     if not settings.openai_api_key:
-        return [_pseudo_embedding(t) for t in texts]
+        # Match Veriloc behavior: if embeddings are unavailable, do not attempt
+        # fuzzy pseudo-similarity clustering that can create random merges.
+        return [[] for _ in texts]
 
     from openai import OpenAI
 
@@ -96,11 +201,18 @@ def cluster_embedded_articles(
 
     sim_threshold = threshold if threshold is not None else settings.news_cluster_similarity_threshold
     groups: list[ArticleGroup] = []
+    max_assignment_gap_seconds = 24 * 3600
 
     for item in embedded:
         best_idx = -1
         best_sim = -1.0
+        item_dt = _parse_iso_dt(item.raw.published_at)
+        item_title_tokens = set(re.findall(r"[a-z0-9]{4,}", item.raw.title.lower()))
+        item_entities = {m.lower() for m in re.findall(r"\b(?:[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b", item.raw.title) if len(m) >= 4}
         for i, group in enumerate(groups):
+            dt_gap = abs((item_dt - _group_latest_datetime(group)).total_seconds())
+            if dt_gap > max_assignment_gap_seconds:
+                continue
             sim = cosine_similarity(item.embedding, group.centroid)
             if sim > best_sim:
                 best_sim = sim
@@ -108,8 +220,16 @@ def cluster_embedded_articles(
 
         if best_idx >= 0 and best_sim >= sim_threshold:
             group = groups[best_idx]
-            group.articles.append(item)
-            group.centroid = _mean_embedding([a.embedding for a in group.articles])
+            title_overlap = _jaccard(item_title_tokens, _title_tokens(group))
+            entity_overlap = _jaccard(item_entities, _title_entities(group))
+            strong_similarity = best_sim >= (sim_threshold + 0.1)
+            if strong_similarity or title_overlap >= 0.2 or entity_overlap >= 0.2:
+                group.articles.append(item)
+                group.centroid = _mean_embedding([a.embedding for a in group.articles])
+            else:
+                groups.append(
+                    ArticleGroup(articles=[item], centroid=list(item.embedding))
+                )
         else:
             groups.append(
                 ArticleGroup(articles=[item], centroid=list(item.embedding))

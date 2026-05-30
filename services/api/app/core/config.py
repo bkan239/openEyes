@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     openai_embedding_model: str = "text-embedding-3-small"
 
     # Cosine similarity threshold for grouping articles into one story cluster.
-    news_cluster_similarity_threshold: float = 0.78
+    news_cluster_similarity_threshold: float = 0.80
     # Cap articles per ingest run to control cost and latency.
     news_max_articles_per_run: int = 150
 
