@@ -1,6 +1,12 @@
 import SwiftUI
 
 struct MainTabView: View {
+    /// Fixed icon slot so the tab bar never changes height when Capture is selected.
+    private enum TabBarMetrics {
+        static let iconSlot: CGFloat = 44
+        static let height: CGFloat = 82
+    }
+
     enum Tab: CaseIterable {
         case discover, capture, map
 
@@ -43,20 +49,25 @@ struct MainTabView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Ink.bg)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            HStack(spacing: 0) {
-                ForEach(Tab.allCases, id: \.self) { tab in
-                    tabButton(for: tab)
-                }
-            }
-            .padding(.horizontal, 8)
-            .padding(.top, 8)
-            .padding(.bottom, 6)
-            .background(Ink.surface)
-            .overlay(alignment: .top) {
-                Rectangle().fill(Ink.border).frame(height: 1)
-            }
+            tabBar
         }
         .preferredColorScheme(.light)
+    }
+
+    private var tabBar: some View {
+        HStack(spacing: 0) {
+            ForEach(Tab.allCases, id: \.self) { tab in
+                tabButton(for: tab)
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.top, 8)
+        .padding(.bottom, 6)
+        .frame(height: TabBarMetrics.height, alignment: .top)
+        .background(Ink.surface)
+        .overlay(alignment: .top) {
+            Rectangle().fill(Ink.border).frame(height: 1)
+        }
     }
 
     @ViewBuilder
@@ -72,12 +83,13 @@ struct MainTabView: View {
                     if tab == .capture && isSelected {
                         Circle()
                             .fill(Ink.primary50)
-                            .frame(width: 44, height: 44)
+                            .frame(width: 36, height: 36)
                     }
                     Image(systemName: tab.icon)
-                        .font(.system(size: tab == .capture ? 22 : 20, weight: .semibold))
+                        .font(.system(size: 20, weight: .semibold))
                         .foregroundStyle(isSelected ? Ink.primary : Ink.textSubtle)
                 }
+                .frame(width: TabBarMetrics.iconSlot, height: TabBarMetrics.iconSlot)
                 Text(tab.title)
                     .font(InkFont.caption(11))
                     .foregroundStyle(isSelected ? Ink.primary : Ink.textSubtle)

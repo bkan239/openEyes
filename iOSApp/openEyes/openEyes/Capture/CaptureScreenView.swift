@@ -4,7 +4,7 @@ import SwiftUI
 struct CaptureScreenView: View {
     @ObservedObject var draftStore: CaptureDraftStore
     @StateObject private var camera = CaptureCameraController()
-    @State private var pendingUploadDraft: CaptureUploadDraft?
+    @State private var isAlbumPresented = false
     @State private var captureFlashOpacity: Double = 0
 
     var body: some View {
@@ -16,14 +16,7 @@ struct CaptureScreenView: View {
                     lastCapture: draftStore.drafts.first,
                     previewHeight: geometry.size.height,
                     topInset: topInset,
-                    onOpenDraft: { draftID in
-                        if let id = draftID,
-                           let draft = draftStore.drafts.first(where: { $0.id == id }) {
-                            pendingUploadDraft = draft
-                        } else if let latest = draftStore.drafts.first {
-                            pendingUploadDraft = latest
-                        }
-                    }
+                    onOpenAlbum: { isAlbumPresented = true }
                 )
                 .frame(width: geometry.size.width, height: geometry.size.height)
 
@@ -41,18 +34,14 @@ struct CaptureScreenView: View {
         .onReceive(camera.$pendingDraft.compactMap { $0 }) { draft in
             draftStore.upsert(draft)
             camera.pendingDraft = nil
-            pendingUploadDraft = draft
             let peakOpacity = draft.mediaMode == .video ? 0.18 : 0.42
             withAnimation(.easeOut(duration: 0.06)) { captureFlashOpacity = peakOpacity }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) {
                 withAnimation(.easeOut(duration: 0.22)) { captureFlashOpacity = 0 }
             }
         }
-        .sheet(item: $pendingUploadDraft) { draft in
-            UploadSheetView(draft: draft) { updated in
-                draftStore.upsert(updated)
-                pendingUploadDraft = nil
-            }
+        .sheet(isPresented: $isAlbumPresented) {
+            CaptureAlbumView(draftStore: draftStore)
         }
         .preferredColorScheme(.dark)
     }
@@ -63,7 +52,7 @@ struct CaptureCameraPanel: View {
     let lastCapture: CaptureUploadDraft?
     let previewHeight: CGFloat
     let topInset: CGFloat
-    let onOpenDraft: (UUID?) -> Void
+    let onOpenAlbum: () -> Void
 
     @State private var deviceOrientation: UIDeviceOrientation = UIDevice.current.orientation
     @State private var isPressingShutter = false
@@ -242,7 +231,7 @@ struct CaptureCameraPanel: View {
                 .frame(width: 72, alignment: .trailing)
             }
             .padding(.horizontal, 16)
-            .padding(.bottom, 20)
+            .padding(.bottom, 32)
         }
     }
 
@@ -341,7 +330,7 @@ struct CaptureCameraPanel: View {
     }
 
     private var lastCaptureButton: some View {
-        Button { onOpenDraft(lastCapture?.id) } label: {
+        Button(action: onOpenAlbum) {
             ZStack {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .fill(Ink.ink.opacity(0.28))
