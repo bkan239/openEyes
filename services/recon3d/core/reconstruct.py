@@ -234,11 +234,21 @@ def reconstruct(
         world = _unproject(depth_map, extr, intr)
         conf_map = np.squeeze(_np(preds["depth_conf"])) if "depth_conf" in preds else None
 
+    # Person masks (255 keep / 0 person), computed once and reused for BOTH the
+    # point cloud and the nerfstudio loss masks. Dropping person pixels from the
+    # cloud means no Gaussians ever seed on people -> no blurry human blobs.
+    keep_masks = None
+    if mask_people:
+        from .masks import person_keep_masks
+        keep_masks = person_keep_masks(rgb)              # (S,H,W)
+
     pts = world.reshape(-1, 3)
     cols = rgb.reshape(-1, 3)
     keep = np.isfinite(pts).all(axis=1)
     if conf_map is not None:
         keep &= conf_map.reshape(-1) >= np.percentile(conf_map, conf_percentile)
+    if keep_masks is not None:
+        keep &= keep_masks.reshape(-1) > 0               # drop person pixels from the cloud
     pts, cols = pts[keep], cols[keep]
 
     if clean and len(pts) > 100:
@@ -255,12 +265,8 @@ def reconstruct(
 
     if nerfstudio_dir:
         from .export_nerfstudio import write as write_ns
-        masks = None
-        if mask_people:
-            from .masks import person_keep_masks
-            masks = person_keep_masks(rgb)
         write_ns(nerfstudio_dir, rgb=rgb, extrinsics=extr, intrinsics=intr,
-                 points=pts, colors=cols, masks=masks)
+                 points=pts, colors=cols, masks=keep_masks)
 
     print(f"[reconstruct] {len(pts):,} points, {len(extr)} cameras, image {H}x{W}")
     return Reconstruction(

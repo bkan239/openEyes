@@ -14,9 +14,13 @@ from __future__ import annotations
 import numpy as np
 
 
-def person_keep_masks(rgb: np.ndarray, dilate: int = 11,
+def person_keep_masks(rgb: np.ndarray, dilate: int = 19, conf: float = 0.15,
                       model_name: str = "yolov8x-seg.pt") -> np.ndarray:
-    """rgb (S,H,W,3) uint8 -> keep-masks (S,H,W) uint8 (255 keep, 0 = person)."""
+    """rgb (S,H,W,3) uint8 -> keep-masks (S,H,W) uint8 (255 keep, 0 = person).
+
+    Lower ``conf`` catches faint/partial/blurry people; larger ``dilate`` covers
+    their edges and motion halo so they don't leak into the splat.
+    """
     import cv2
     from ultralytics import YOLO
 
@@ -28,7 +32,7 @@ def person_keep_masks(rgb: np.ndarray, dilate: int = 11,
     n_masked = 0
     for i in range(S):
         bgr = cv2.cvtColor(rgb[i], cv2.COLOR_RGB2BGR)
-        res = model.predict(bgr, classes=[0], conf=0.25, verbose=False)[0]  # class 0 = person
+        res = model.predict(bgr, classes=[0], conf=conf, verbose=False)[0]  # class 0 = person
         if res.masks is None:
             continue
         m = res.masks.data.cpu().numpy()                 # (n, mh, mw) in [0,1]
