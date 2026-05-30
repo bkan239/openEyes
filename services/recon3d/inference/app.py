@@ -84,21 +84,28 @@ PAGE = """<!doctype html><html lang="en"><head>
   <label>📷 Choose / take photos<input id="f" type="file" accept="image/*" multiple capture="environment"></label>
   <button id="go" disabled>Reconstruct</button>
   <div id="status"></div>
-  <video id="vid" controls autoplay loop muted playsinline style="display:none"></video>
+  <div id="results" class="wrap"></div>
 </div>
 <script>
  const f=document.getElementById('f'),go=document.getElementById('go'),
-       st=document.getElementById('status'),vid=document.getElementById('vid');
+       st=document.getElementById('status'),res=document.getElementById('results');
  f.onchange=()=>{go.disabled=!f.files.length; st.textContent=f.files.length+' photo(s) selected';};
  go.onclick=async()=>{
-   go.disabled=true; st.textContent='Uploading + reconstructing… (a few seconds)';
+   go.disabled=true; res.innerHTML=''; st.textContent='Uploading + reconstructing… (a few seconds)';
    const fd=new FormData(); for(const file of f.files) fd.append('images',file);
    try{
      const r=await fetch('/reconstruct',{method:'POST',body:fd});
      const j=await r.json();
-     if(j.video){ vid.src=j.video+'?t='+Date.now(); vid.style.display='block';
-       st.textContent='Done in '+j.seconds+'s — your scene in 3D.'; }
-     else st.textContent='Failed: '+(j.error||'no video produced');
+     const vids=j.videos||(j.video?[j.video]:[]);
+     if(vids.length){
+       st.textContent='Done in '+j.seconds+'s — '+vids.length+' trajectories.';
+       for(const u of vids){
+         const lab=document.createElement('p'); lab.textContent='▶ '+u.split('/').pop().replace('.mp4','');
+         const v=document.createElement('video'); v.src=u+'?t='+Date.now();
+         v.controls=v.autoplay=v.loop=v.muted=v.playsInline=true;
+         res.appendChild(lab); res.appendChild(v);
+       }
+     } else st.textContent='Failed: '+(j.error||'no video produced');
    }catch(e){ st.textContent='Error: '+e; }
    go.disabled=false;
  };
@@ -136,18 +143,17 @@ async def reconstruct(images: list[UploadFile] = File(...)):
         model = get_model()                 # returns cached model (loads if first call)
         with _infer_lock:                   # one GPU job at a time
             log(f"reconstructing {stamp} ...")
-            ar.reconstruct(model, batch_dir, OUT / stamp)
+            videos = ar.reconstruct(model, batch_dir, OUT / stamp)   # RGB mp4 paths, forward first
     except Exception as e:
         log(f"✗ reconstruction failed: {e}\n{traceback.format_exc()}")
         return JSONResponse({"error": str(e)}, status_code=500)
 
-    mp4s = sorted((OUT / stamp).glob("*.mp4"))
-    if not mp4s:
+    if not videos:
         log(f"✗ no .mp4 produced in {OUT / stamp} — check anysplat_recon vs demo_gradio.py")
         return JSONResponse({"error": "no video produced"}, status_code=500)
 
-    shutil.copy(mp4s[0], OUT / "latest.mp4")
+    shutil.copy(videos[0], OUT / "latest.mp4")          # canonical = forward fly-through
+    urls = [f"/outputs/{stamp}/{v.name}" for v in videos]
     secs = round(time.time() - t, 1)
-    url = f"/outputs/{stamp}/{mp4s[0].name}"
-    log(f"✅ done {stamp} in {secs}s -> {url}")
-    return JSONResponse({"video": url, "seconds": secs})
+    log(f"✅ done {stamp} in {secs}s -> {len(urls)} videos {[v.name for v in videos]}")
+    return JSONResponse({"videos": urls, "seconds": secs})
