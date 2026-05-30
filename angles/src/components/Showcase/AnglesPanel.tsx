@@ -64,10 +64,10 @@ function PerspectiveCard({ p }: { p: LivePerspective }) {
         </span>
         <span className={`ev-pcard-status ${status}`}>{statusLabel}</span>
       </span>
-      <span className="ev-film" style={{ opacity: live ? 1 : 0.45, display: "flex" }}>
+      <span className="ev-film" style={{ opacity: live ? 1 : 0.4, display: "flex" }}>
         <span className="ev-film-hatch" />
         <span className="ev-film-accent" style={{ background: identity.color }} />
-        <span className={`ev-film-tag${live ? " on" : ""}`}>{live ? "LIVE FEED" : "NO SIGNAL FEED"}</span>
+        <span className="ev-film-tag">NO SIGNAL FEED</span>
       </span>
     </button>
   );

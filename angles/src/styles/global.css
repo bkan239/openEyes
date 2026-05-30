@@ -740,7 +740,6 @@ input.ghost::placeholder { color: var(--text-faint); }
   inset: 0;
   background: repeating-linear-gradient(115deg, rgba(252, 251, 248, 0.05) 0 2px, transparent 2px 11px);
 }
-.ev-film-thumb { position: absolute; inset: 0; background-size: cover; background-position: center; opacity: 0.55; }
 .ev-film-accent { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; opacity: 0.85; }
 .ev-film-tag {
   position: relative;
@@ -750,7 +749,51 @@ input.ghost::placeholder { color: var(--text-faint); }
   letter-spacing: 0.2em;
   color: var(--muted);
 }
-.ev-film-tag.on { color: var(--ink-dim); }
+
+/* ---- incident / victim focus marker (showcase) ---- */
+.ev-victim { position: relative; width: 0; height: 0; pointer-events: none; }
+.ev-victim-ring {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 40px;
+  height: 40px;
+  margin: -20px 0 0 -20px;
+  border-radius: 999px;
+  border: 1.2px solid var(--victim);
+  opacity: 0;
+  transform-origin: center;
+  animation: ev-victim-pulse 2.6s ease-out infinite;
+}
+@keyframes ev-victim-pulse {
+  0% { transform: scale(0.55); opacity: 0.6; }
+  70% { transform: scale(1.5); opacity: 0; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+.ev-victim-dot {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 13px;
+  height: 13px;
+  margin: -6.5px 0 0 -6.5px;
+  border-radius: 999px;
+  background: radial-gradient(circle, var(--map-void) 0 26%, var(--victim) 30% 100%);
+  box-shadow: 0 0 10px rgba(244, 239, 217, 0.35);
+}
+.ev-victim-label {
+  position: absolute;
+  left: 18px;
+  top: 0;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: var(--victim);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.7);
+}
 
 /* ---- editorial timeline ---- */
 .ev-timeline {
