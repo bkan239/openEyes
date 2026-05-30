@@ -1,0 +1,5 @@
+# JS/TS workspaces. The FastAPI backend in services/api is a Python project
+# managed by uv and is intentionally NOT a pnpm workspace.
+packages:
+  - "apps/*"
+  - "packages/*"

@@ -120,36 +120,37 @@ The score is a **probability, not a verdict**. Corroboration drastically lowers 
 
 ## Tech stack
 
-> Adjust to what the team actually uses — placeholders below.
+The stack chosen for the hackathon build:
 
-- **Mobile / capture:** React Native (or PWA) for upload + signed metadata
-- **Frontend / hub:** Next.js + Tailwind
-- **Backend / API:** Python (FastAPI) or Node
-- **AI verification:** deepfake/tamper model + metadata checks
-- **Audio sync:** audio fingerprinting (e.g. chromaprint-style matching)
-- **3D reconstruction:** photogrammetry / structure-from-motion pipeline
-- **Storage:** object storage for media + DB for events/clips
+- **Frontend / hub + capture:** Next.js (App Router) + Tailwind, hosted on AWS (OpenNext). Capture/upload runs as a PWA in the browser.
+- **Backend / API:** Python (FastAPI) on AWS Lambda (via Mangum), behind a Function URL.
+- **AI verification:** OpenAI vision model for the per-clip manipulation signal + metadata checks.
+- **Audio sync:** time/geo clustering now; audio fingerprinting (chromaprint-style) next.
+- **Storage:** Amazon S3 for media, Amazon DynamoDB for events/clips/sources.
+- **Infrastructure:** SST v3 (Ion) — one TypeScript definition deploys all of the above to AWS.
+- **Monorepo:** pnpm workspaces + Turborepo.
+
+See [`DEVELOPMENT.md`](./DEVELOPMENT.md) for setup and the day-to-day workflow.
 
 ---
 
 ## Repository structure
 
-> Proposed layout — create as you go.
-
 ```
 openeyes/
 ├── apps/
-│   ├── mobile/        # capture + upload
-│   └── web/           # verified hub
+│   └── web/            # Next.js hub + PWA capture/upload
 ├── services/
-│   ├── verify/        # AI deepfake/metadata checks
-│   ├── cluster/       # audio sync + event clustering
-│   ├── angles/        # multi-angle matching
-│   └── recon3d/       # 3D reconstruction
+│   └── api/            # FastAPI on Lambda: verify · cluster · trust · storage
 ├── packages/
-│   └── shared/        # types, trust-score logic
-└── README.md
+│   └── shared/         # shared TS types + trust-score logic
+├── sst.config.ts       # AWS infrastructure (SST v3): S3, DynamoDB, Lambda, hosting
+└── DEVELOPMENT.md      # setup & day-to-day workflow
 ```
+
+The heavier services from the original plan (multi-angle matching, 3D
+reconstruction) will land under `services/` as they're built; for the demo the
+verify / cluster / trust logic lives inside `services/api`.
 
 ---
 
