@@ -4,13 +4,13 @@ struct MainTabView: View {
     /// Fixed icon slot so the tab bar never changes height when Capture is selected.
     private enum TabBarMetrics {
         static let iconSlot: CGFloat = 44
-        static let height: CGFloat = 82
+        static let height: CGFloat = 62
     }
 
     enum Tab: CaseIterable {
         case discover, capture, map
 
-        var title: String {
+        var accessibilityLabel: String {
             switch self {
             case .discover: return "Discover"
             case .capture: return "Capture"
@@ -43,7 +43,7 @@ struct MainTabView: View {
             case .capture:
                 CaptureScreenView(draftStore: draftStore)
             case .map:
-                MapScreenView(focusTarget: $mapFocusTarget, mapPins: feedStore.mapPins)
+                MapScreenView(feedStore: feedStore, focusTarget: $mapFocusTarget)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -61,9 +61,8 @@ struct MainTabView: View {
             }
         }
         .padding(.horizontal, 8)
-        .padding(.top, 8)
-        .padding(.bottom, 6)
-        .frame(height: TabBarMetrics.height, alignment: .top)
+        .padding(.vertical, 6)
+        .frame(height: TabBarMetrics.height)
         .background(Ink.surface)
         .overlay(alignment: .top) {
             Rectangle().fill(Ink.border).frame(height: 1)
@@ -78,26 +77,21 @@ struct MainTabView: View {
                 selectedTab = tab
             }
         } label: {
-            VStack(spacing: 4) {
-                ZStack {
-                    if tab == .capture && isSelected {
-                        Circle()
-                            .fill(Ink.primary50)
-                            .frame(width: 36, height: 36)
-                    }
-                    Image(systemName: tab.icon)
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(isSelected ? Ink.primary : Ink.textSubtle)
+            ZStack {
+                if tab == .capture && isSelected {
+                    Circle()
+                        .fill(Ink.primary50)
+                        .frame(width: 36, height: 36)
                 }
-                .frame(width: TabBarMetrics.iconSlot, height: TabBarMetrics.iconSlot)
-                Text(tab.title)
-                    .font(InkFont.caption(11))
+                Image(systemName: tab.icon)
+                    .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(isSelected ? Ink.primary : Ink.textSubtle)
             }
+            .frame(width: TabBarMetrics.iconSlot, height: TabBarMetrics.iconSlot)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 4)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(tab.accessibilityLabel)
     }
 }
 

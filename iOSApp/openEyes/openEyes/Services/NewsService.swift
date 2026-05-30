@@ -54,6 +54,9 @@ struct NewsService {
 }
 
 enum NewsStoryMapper {
+    /// Minimum corroborating articles required before a cluster appears on the map.
+    static let mapMinimumArticleCount = 3
+
     private static let isoFormatter: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -77,7 +80,7 @@ enum NewsStoryMapper {
             category: inferCategory(title: cluster.title, summary: cluster.summary),
             location: cluster.location.label ?? formattedCoordinate(cluster.location),
             timeAgo: relativeTime(from: cluster.occurredAt),
-            status: cluster.sourceCount >= 3 ? .pending : .pending,
+            status: cluster.articleCount >= Self.mapMinimumArticleCount ? .verified : .pending,
             sources: sources,
             mediaCount: 0,
             heroGradient: gradient(for: cluster.id),
@@ -109,8 +112,15 @@ enum NewsStoryMapper {
             status: story.status,
             latitude: story.mapCenter.latitude,
             longitude: story.mapCenter.longitude,
-            date: story.occurredAt ?? .now
+            date: story.occurredAt ?? .now,
+            articleCount: story.articleCount
         )
+    }
+
+    static func isPlottableCoordinate(_ coordinate: CLLocationCoordinate2D) -> Bool {
+        guard coordinate.latitude.isFinite, coordinate.longitude.isFinite else { return false }
+        guard abs(coordinate.latitude) <= 90, abs(coordinate.longitude) <= 180 else { return false }
+        return !(coordinate.latitude == 0 && coordinate.longitude == 0)
     }
 
     private static func uniqueSources(from articles: [ArticleItem], count: Int) -> [NewsSource] {
