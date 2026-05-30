@@ -51,6 +51,10 @@ print("torch", torch.__version__, "cuda", torch.version.cuda, "ok", torch.cuda.i
 PY
 
 echo
+echo "TIP: weights cache on the persistent volume — export HF_HOME=/workspace/hf-cache"
+echo "     (anysplat_recon.py sets this automatically when /workspace exists)"
+
+echo
 echo "Setup done. Use the env with:"
 echo "  source services/recon3d/inference/.venv-anysplat/bin/activate"
 echo "Then:  python run_once.py --images-dir ../data/easy_data/pics --out outputs/room"
