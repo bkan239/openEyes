@@ -61,7 +61,7 @@ resource api 'Microsoft.Web/sites@2022-09-01' = {
       linuxFxVersion: 'PYTHON|3.12'
       alwaysOn: true
       healthCheckPath: '/health'
-      appCommandLine: 'bash startup.sh'
+      appCommandLine: ''
       appSettings: [
         {
           name: 'SCM_DO_BUILD_DURING_DEPLOYMENT'
