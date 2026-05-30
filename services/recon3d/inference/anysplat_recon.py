@@ -12,9 +12,16 @@ three marked lines to match it.
 
 from __future__ import annotations
 
+import os
 import sys
 import time
 from pathlib import Path
+
+# Cache HF weights (AnySplat + its VGGT-1B backbone, ~10 GB) on the PERSISTENT
+# /workspace volume, not the small ephemeral container disk (which runs out and
+# is wiped on pod restart). Override by exporting HF_HOME yourself.
+if Path("/workspace").is_dir():
+    os.environ.setdefault("HF_HOME", "/workspace/hf-cache")
 
 HERE = Path(__file__).resolve().parent
 ANYSPLAT = HERE / "AnySplat"
