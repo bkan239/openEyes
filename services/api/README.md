@@ -95,3 +95,29 @@ deterministic pseudo-embeddings without it). Requires DynamoDB table
 ## Deploy on AWS (optional)
 
 Lambda + Function URL via SST or `./scripts/deploy-api.sh`. See root `sst.config.ts` and `scripts/deploy-api.sh`. Requires IAM permissions on your AWS user.
+
+## Deploy on Azure (recommended)
+
+No Docker — App Service runs Python natively (Oryx builds `requirements.txt` in the cloud).
+
+**Live dev API:** https://app-api-w2xlpc7ldi7ve.azurewebsites.net  
+(`/health`, `/docs`, `/news/clusters`, `POST /news/ingest`)
+
+### GitHub Actions (push to `main`)
+
+1. One-time OIDC setup:
+   ```bash
+   ./scripts/setup-azure-github-oidc.sh bkan239/openEyes
+   ```
+2. Add GitHub secrets: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `OPENAI_API_KEY` (optional).
+3. Push changes under `services/api/` or `infra/` — workflow `.github/workflows/deploy-api-azure.yml` provisions + deploys to `openeyes-prod`.
+
+### Local azd
+
+```bash
+azd env new openeyes-dev --location westeurope
+azd env config set infra.parameters.environmentName openeyes-dev
+azd env config set infra.parameters.location westeurope
+azd provision && azd deploy
+curl "$(azd env get-values | grep SERVICE_API_URI | cut -d= -f2 | tr -d '"')/health"
+```

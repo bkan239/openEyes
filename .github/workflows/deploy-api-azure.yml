@@ -1,0 +1,77 @@
+# Deploy the OpenEyes FastAPI backend to Azure App Service (no Docker).
+#
+# One-time setup — run locally:
+#   ./scripts/setup-azure-github-oidc.sh
+#
+# Then add GitHub repo secrets (Settings → Secrets → Actions):
+#   AZURE_CLIENT_ID       — app registration client id
+#   AZURE_TENANT_ID       — Azure AD tenant id
+#   AZURE_SUBSCRIPTION_ID — 91a998dd-e03d-4ad7-b928-d30925f43a91 (whf-platform-ai)
+#   OPENAI_API_KEY        — optional; enables real embeddings + summaries
+
+name: Deploy API (Azure)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "services/api/**"
+      - "infra/**"
+      - "azure.yaml"
+      - ".github/workflows/deploy-api-azure.yml"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AZURE_ENV_NAME: openeyes-prod
+  AZURE_LOCATION: westeurope
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - uses: Azure/setup-azd@v2.1.0
+
+      - name: Configure azd environment
+        run: |
+          azd env select "${{ env.AZURE_ENV_NAME }}" 2>/dev/null \
+            || azd env new "${{ env.AZURE_ENV_NAME }}" \
+                 --location "${{ env.AZURE_LOCATION }}" \
+                 --subscription "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+          azd env config set infra.parameters.environmentName "${{ env.AZURE_ENV_NAME }}"
+          azd env config set infra.parameters.location "${{ env.AZURE_LOCATION }}"
+
+      - name: Provision Azure resources
+        run: azd provision --no-prompt
+
+      - name: Deploy API
+        run: azd deploy --no-prompt
+
+      - name: Configure OpenAI key
+        if: ${{ secrets.OPENAI_API_KEY != '' }}
+        run: |
+          RG="rg-${{ env.AZURE_ENV_NAME }}"
+          APP="$(az webapp list -g "$RG" --query "[?tags.\"azd-service-name\"=='api'].name | [0]" -o tsv)"
+          az webapp config appsettings set \
+            -g "$RG" -n "$APP" \
+            --settings "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" \
+            -o none
+
+      - name: Smoke test
+        run: |
+          URL="$(azd env get-values -e "${{ env.AZURE_ENV_NAME }}" | grep '^SERVICE_API_URI=' | cut -d= -f2- | tr -d '"')"
+          echo "API URL: $URL"
+          curl -fsS "$URL/health" | grep -q '"ok":true'
+          curl -fsS -o /dev/null -w "docs HTTP %{http_code}\n" "$URL/docs"

@@ -2,11 +2,13 @@ import MapKit
 import SwiftUI
 
 struct DiscoverView: View {
+    @ObservedObject var feedStore: NewsFeedStore
     @State private var selectedCategoryID = "all"
     @State private var previousCategoryID = "all"
     @State private var isSearching = false
     @State private var searchText = ""
     @State private var selectedStory: NewsStory?
+    @State private var isLoadingDetail = false
     let onShowOnMap: (MapFocusTarget) -> Void
 
     private var categoryItems: [(id: String, title: String, icon: String)] {
@@ -18,7 +20,7 @@ struct DiscoverView: View {
             return []
         }
 
-        var stories = MockData.stories
+        var stories = feedStore.stories
 
         if !isSearching && selectedCategoryID != "all" {
             stories = stories.filter { $0.category.lowercased() == selectedCategoryID }
@@ -56,6 +58,20 @@ struct DiscoverView: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 10)
                 .padding(.bottom, 16)
+
+                if feedStore.isUsingMockFallback, let loadError = feedStore.loadError {
+                    HStack(spacing: 8) {
+                        Image(systemName: "wifi.exclamationmark")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text(loadError)
+                            .font(InkFont.body(12))
+                            .lineLimit(2)
+                        Spacer(minLength: 0)
+                    }
+                    .foregroundStyle(Ink.textMuted)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 10)
+                }
 
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
@@ -163,10 +179,24 @@ struct DiscoverView: View {
 
                 ScrollView {
                     LazyVStack(spacing: 16) {
+                        if feedStore.isLoading && filteredStories.isEmpty {
+                            ProgressView("Loading stories…")
+                                .font(InkFont.body(14))
+                                .foregroundStyle(Ink.textMuted)
+                                .padding(.top, 40)
+                        }
+
                         ForEach(filteredStories) { story in
                             NewsStoryCard(story: story) {
                                 withAnimation(.spring(response: 0.34, dampingFraction: 0.88)) {
                                     selectedStory = story
+                                }
+                                Task {
+                                    isLoadingDetail = true
+                                    if let detailed = await feedStore.storyDetail(id: story.id) {
+                                        selectedStory = detailed
+                                    }
+                                    isLoadingDetail = false
                                 }
                             }
                         }
@@ -189,11 +219,15 @@ struct DiscoverView: View {
                     .padding(.horizontal, 16)
                     .padding(.bottom, 24)
                 }
+                .refreshable {
+                    await feedStore.refresh()
+                }
             }
 
             if let selectedStory {
                 DiscoverStoryDetailView(
                     story: selectedStory,
+                    isLoadingArticles: isLoadingDetail,
                     onClose: {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
                             self.selectedStory = nil
@@ -207,6 +241,9 @@ struct DiscoverView: View {
             }
         }
         .background(Ink.bg)
+        .task {
+            await feedStore.refresh()
+        }
     }
 }
 
@@ -422,6 +459,7 @@ struct DiscoverSourceIcon: View {
 
 struct DiscoverStoryDetailView: View {
     let story: NewsStory
+    var isLoadingArticles = false
     let onClose: () -> Void
     let onShowOnMap: (MapFocusTarget) -> Void
     @State private var dragOffset: CGFloat = 0
@@ -452,7 +490,14 @@ struct DiscoverStoryDetailView: View {
                             .fixedSize(horizontal: false, vertical: true)
                             .frame(maxWidth: .infinity, alignment: .leading)
 
-                        if !story.articles.isEmpty {
+                        if isLoadingArticles && story.articles.isEmpty {
+                            HStack(spacing: 10) {
+                                ProgressView()
+                                Text("Loading articles…")
+                                    .font(InkFont.body(14))
+                                    .foregroundStyle(Ink.textMuted)
+                            }
+                        } else if !story.articles.isEmpty {
                             articlesSection
                         }
 
@@ -771,5 +816,5 @@ struct DiscoverMediaThumbnail: View {
 }
 
 #Preview {
-    DiscoverView(onShowOnMap: { _ in })
+    DiscoverView(feedStore: NewsFeedStore(), onShowOnMap: { _ in })
 }

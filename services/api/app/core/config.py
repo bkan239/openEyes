@@ -18,11 +18,16 @@ class Settings(BaseSettings):
     )
 
     stage: str = "local"
+    storage_backend: str = "aws"  # aws | azure
 
     # AWS resources (names injected by SST link/env in deployed stages).
     media_bucket: str = "openeyes-dev-media"
     data_table: str = "openeyes-dev-data"
     aws_region: str = "eu-central-1"
+
+    # Azure Table / Blob (when storage_backend=azure).
+    azure_storage_connection_string: str = ""
+    azure_storage_account: str = ""
 
     # OpenAI — verification model. Empty key -> verification runs in mock mode.
     openai_api_key: str = ""

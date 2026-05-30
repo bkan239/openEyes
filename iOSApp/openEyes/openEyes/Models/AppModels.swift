@@ -2,8 +2,7 @@ import CoreLocation
 import SwiftUI
 
 struct NewsStory: Identifiable {
-    let id = UUID()
-    let storyKey: String
+    let id: String
     let title: String
     let description: String
     let category: String
@@ -18,6 +17,7 @@ struct NewsStory: Identifiable {
     var coverImageURL: URL? = nil
     var articleCount: Int = 0
     var articles: [ArticleItem] = []
+    var occurredAt: Date? = nil
 
     var coordinate: CLLocationCoordinate2D { mapCenter }
 
@@ -27,7 +27,7 @@ struct NewsStory: Identifiable {
 }
 
 struct ArticleItem: Identifiable {
-    let id = UUID()
+    let id: String
     let title: String
     let source: String
     var iconURL: URL? = nil
@@ -35,7 +35,7 @@ struct ArticleItem: Identifiable {
 }
 
 struct NewsSource: Identifiable {
-    let id = UUID()
+    let id: String
     let name: String
     let url: URL
     var iconURL: URL? = nil
@@ -43,15 +43,15 @@ struct NewsSource: Identifiable {
     static func mockSet(prefix: String) -> [NewsSource] {
         let url = URL(string: "https://example.com")!
         return [
-            NewsSource(name: "\(prefix) Wire", url: url),
-            NewsSource(name: "\(prefix) Post", url: url),
-            NewsSource(name: "\(prefix) Desk", url: url),
+            NewsSource(id: "\(prefix)-wire", name: "\(prefix) Wire", url: url),
+            NewsSource(id: "\(prefix)-post", name: "\(prefix) Post", url: url),
+            NewsSource(id: "\(prefix)-desk", name: "\(prefix) Desk", url: url),
         ]
     }
 }
 
 struct MapEventPin: Identifiable, Hashable {
-    let id = UUID()
+    let id: String
     let title: String
     let status: VerificationStatus
     let latitude: Double
@@ -64,7 +64,7 @@ struct MapEventPin: Identifiable, Hashable {
 }
 
 struct MapFocusTarget: Identifiable, Equatable {
-    let id = UUID()
+    let id: String
     let latitude: Double
     let longitude: Double
     let span: Double
@@ -73,7 +73,8 @@ struct MapFocusTarget: Identifiable, Equatable {
         CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
     }
 
-    init(coordinate: CLLocationCoordinate2D, span: Double) {
+    init(id: String = UUID().uuidString, coordinate: CLLocationCoordinate2D, span: Double) {
+        self.id = id
         latitude = coordinate.latitude
         longitude = coordinate.longitude
         self.span = span

@@ -13,24 +13,28 @@ enum MockData {
 
     private static let minneapolisArticles: [ArticleItem] = [
         ArticleItem(
+            id: "mpls-1",
             title: "Alex Pretti identified as nurse killed in Minneapolis shooting",
             source: "Minnesota Public Radio",
             iconURL: URL(string: "https://www.google.com/s2/favicons?domain=www.mprnews.org&sz=64"),
             url: URL(string: "https://www.mprnews.org")!
         ),
         ArticleItem(
+            id: "mpls-2",
             title: "Video shows moments before fatal shooting in Whittier",
             source: "NBC News",
             iconURL: URL(string: "https://www.google.com/s2/favicons?domain=www.nbcnews.com&sz=64"),
             url: URL(string: "https://www.nbcnews.com")!
         ),
         ArticleItem(
+            id: "mpls-3",
             title: "Border patrol agents involved in Minneapolis fatality",
             source: "The Guardian",
             iconURL: URL(string: "https://www.google.com/s2/favicons?domain=www.theguardian.com&sz=64"),
             url: URL(string: "https://www.theguardian.com")!
         ),
         ArticleItem(
+            id: "mpls-4",
             title: "Protesters gather at 26th and Nicollet after shooting",
             source: "Star Tribune",
             url: URL(string: "https://www.startribune.com")!
@@ -39,7 +43,7 @@ enum MockData {
 
     static let stories: [NewsStory] = [
         NewsStory(
-            storyKey: "minneapolis-ice",
+            id: "minneapolis-ice",
             title: "ICE fatally shoots 37-year-old ICU nurse in Minneapolis",
             description: "On January 24 2026, Alex Pretti — a 37-year-old ICU nurse — was fatally shot by two U.S. Customs and Border Protection agents at 26th Street and Nicollet Avenue in Minneapolis's Whittier neighborhood during a federal immigration enforcement operation.",
             category: "Demo",
@@ -48,16 +52,19 @@ enum MockData {
             status: .pending,
             sources: [
                 NewsSource(
+                    id: "mpr",
                     name: "Minnesota Public Radio",
                     url: URL(string: "https://www.mprnews.org")!,
                     iconURL: URL(string: "https://www.google.com/s2/favicons?domain=www.mprnews.org&sz=64")
                 ),
                 NewsSource(
+                    id: "nbc",
                     name: "NBC News",
                     url: URL(string: "https://www.nbcnews.com")!,
                     iconURL: URL(string: "https://www.google.com/s2/favicons?domain=www.nbcnews.com&sz=64")
                 ),
                 NewsSource(
+                    id: "guardian",
                     name: "The Guardian",
                     url: URL(string: "https://www.theguardian.com")!,
                     iconURL: URL(string: "https://www.google.com/s2/favicons?domain=www.theguardian.com&sz=64")
@@ -72,7 +79,7 @@ enum MockData {
             articles: minneapolisArticles
         ),
         NewsStory(
-            storyKey: "zurich-tram",
+            id: "zurich-tram",
             title: "Tram disruption and crowd buildup spread across central Zurich",
             description: "Witness uploads from multiple blocks show tram delays, police rerouting, and fast-growing pedestrian congestion around the station district.",
             category: "Politics",
@@ -86,7 +93,7 @@ enum MockData {
             mapSpan: 0.012
         ),
         NewsStory(
-            storyKey: "hamburg-flood",
+            id: "hamburg-flood",
             title: "Flooded tunnel traffic redirected in Hamburg",
             description: "Emergency crews and drivers are coordinating manually as floodwater fills the eastern underpass and reroutes traffic lane by lane.",
             category: "Crisis",
@@ -100,7 +107,7 @@ enum MockData {
             mapSpan: 0.015
         ),
         NewsStory(
-            storyKey: "paris-crowd",
+            id: "paris-crowd",
             title: "Crowds surge into Place de la République",
             description: "More demonstrators continue to arrive from the side streets while the police line shifts farther south after the announcement.",
             category: "Politics",
@@ -117,11 +124,12 @@ enum MockData {
 
     static let mapPins: [MapEventPin] = stories.map { story in
         MapEventPin(
+            id: story.id,
             title: story.title,
             status: story.status,
             latitude: story.mapCenter.latitude,
             longitude: story.mapCenter.longitude,
-            date: .now.addingTimeInterval(-3600)
+            date: story.occurredAt ?? .now.addingTimeInterval(-3600)
         )
     }
 }

@@ -5,6 +5,7 @@ import SwiftUI
 
 struct MapScreenView: View {
     @Binding var focusTarget: MapFocusTarget?
+    var mapPins: [MapEventPin] = MockData.mapPins
 
     @State private var position = MapCameraPosition.region(
         MKCoordinateRegion(
@@ -24,7 +25,7 @@ struct MapScreenView: View {
     @FocusState private var searchFocused: Bool
 
     private var filteredPins: [MapEventPin] {
-        MockData.mapPins.filter { $0.date >= fromDate && $0.date <= toDate }
+        mapPins.filter { $0.date >= fromDate && $0.date <= toDate }
     }
 
     var body: some View {

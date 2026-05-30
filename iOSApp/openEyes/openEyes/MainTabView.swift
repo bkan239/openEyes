@@ -24,19 +24,20 @@ struct MainTabView: View {
     @State private var selectedTab: Tab = .discover
     @State private var mapFocusTarget: MapFocusTarget?
     @StateObject private var draftStore = CaptureDraftStore()
+    @StateObject private var feedStore = NewsFeedStore()
 
     var body: some View {
         Group {
             switch selectedTab {
             case .discover:
-                DiscoverView { target in
+                DiscoverView(feedStore: feedStore) { target in
                     mapFocusTarget = target
                     selectedTab = .map
                 }
             case .capture:
                 CaptureScreenView(draftStore: draftStore)
             case .map:
-                MapScreenView(focusTarget: $mapFocusTarget)
+                MapScreenView(focusTarget: $mapFocusTarget, mapPins: feedStore.mapPins)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
