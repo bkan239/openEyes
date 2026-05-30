@@ -53,8 +53,12 @@ def main() -> None:
                     help="also export a nerfstudio dataset to <out>/nerfstudio for "
                          "Gaussian Splatting (ns-train splatfacto --data <out>/nerfstudio)")
     ap.add_argument("--mask-people", action="store_true",
-                    help="with --nerfstudio: segment people and write masks so the splat "
-                         "ignores the moving crowd (needs ultralytics; trains on static scene)")
+                    help="segment people and mask them in EVERY frame -> clean empty scene "
+                         "(needs ultralytics)")
+    ap.add_argument("--people-frame", default=None,
+                    help="keep people from ONLY this frame index (or 'auto'), masked in all "
+                         "others -> a sharp 'frozen instant' of the crowd in the 3D scene. "
+                         "Best result when the fly-through stays near that frame's camera.")
     args = ap.parse_args()
 
     out = Path(args.out)
@@ -91,6 +95,7 @@ def main() -> None:
         voxel=args.voxel,
         nerfstudio_dir=str(out / "nerfstudio") if args.nerfstudio else None,
         mask_people=args.mask_people,
+        people_ref=args.people_frame,
     )
 
     # 3) predictions -> GLB

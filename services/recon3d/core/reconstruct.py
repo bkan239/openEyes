@@ -197,6 +197,7 @@ def reconstruct(
     voxel: float | None = None,
     nerfstudio_dir: str | None = None,
     mask_people: bool = False,
+    people_ref: str | int | None = None,
 ) -> Reconstruction:
     """Run inference and return a normalized, confidence-filtered point cloud."""
     import torch
@@ -235,12 +236,24 @@ def reconstruct(
         conf_map = np.squeeze(_np(preds["depth_conf"])) if "depth_conf" in preds else None
 
     # Person masks (255 keep / 0 person), computed once and reused for BOTH the
-    # point cloud and the nerfstudio loss masks. Dropping person pixels from the
-    # cloud means no Gaussians ever seed on people -> no blurry human blobs.
+    # point cloud and the nerfstudio loss masks.
+    #   mask_people           -> people removed from EVERY frame (clean empty scene)
+    #   people_ref=N / 'auto' -> people kept in ONE frame, masked elsewhere, so the
+    #                            crowd appears as a sharp "frozen instant" in the 3D
+    #                            scene (single-view supervised -> no multi-view blur).
     keep_masks = None
-    if mask_people:
+    if mask_people or people_ref is not None:
         from .masks import person_keep_masks
         keep_masks = person_keep_masks(rgb)              # (S,H,W)
+        if people_ref is not None:
+            if str(people_ref) == "auto":
+                counts = [(keep_masks[i] == 0).sum() for i in range(len(keep_masks))]
+                ref = int(np.argmax(counts))             # frame with the most people
+            else:
+                ref = int(people_ref) % len(keep_masks)
+            keep_masks[ref] = 255                         # keep people in this one frame
+            print(f"[masks] FROZEN-INSTANT mode: people kept only from frame {ref}, "
+                  f"masked in the other {len(keep_masks) - 1} frames")
 
     pts = world.reshape(-1, 3)
     cols = rgb.reshape(-1, 3)
