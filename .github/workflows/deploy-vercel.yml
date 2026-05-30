@@ -1,0 +1,48 @@
+# Deploy the health API to Vercel on every push to main.
+#
+# One-time setup (after importing the repo in Vercel OR running `vercel link` locally):
+#   1. Create a token: https://vercel.com/account/tokens
+#   2. Add GitHub repo secrets (Settings → Secrets → Actions):
+#        VERCEL_TOKEN          — from step 1
+#        VERCEL_ORG_ID         — from .vercel/project.json after `vercel link`
+#        VERCEL_PROJECT_ID     — from .vercel/project.json after `vercel link`
+#
+# Easier alternative: skip this workflow and use Vercel's GitHub integration
+# (vercel.com → Add New → Project → Import openEyes). That auto-deploys with no secrets.
+
+name: Deploy API (Vercel)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "api/**"
+      - "vercel.json"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/deploy-vercel.yml"
+  workflow_dispatch:
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Pull Vercel env
+        run: npx vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy to Vercel (production)
+        run: npx vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }}
