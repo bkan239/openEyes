@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OpenEyes — reconstructed in 3D</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+    video { position: fixed; inset: 0; width: 100vw; height: 100vh; object-fit: contain; background: #000; }
+    #badge { position: fixed; top: 18px; left: 22px; z-index: 2; color: #fff;
+      font: 600 20px/1.2 system-ui, sans-serif; letter-spacing: .2px; text-shadow: 0 1px 6px #000; }
+    #sub { font-weight: 400; font-size: 13px; color: #b9c2d2; }
+    #reload { position: fixed; top: 16px; right: 18px; z-index: 2; background: #1d2533cc;
+      color: #e6e9ef; border: 1px solid #2c3548; border-radius: 8px; padding: 8px 12px;
+      font: 600 13px system-ui; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div id="badge">OpenEyes — reconstructed in 3D<br><span id="sub">novel viewpoints rendered from real photos</span></div>
+  <button id="reload" onclick="reload()">↻ latest</button>
+  <video id="v" autoplay loop muted playsinline controls></video>
+  <script>
+    // Load (and cache-bust) the newest hero render. Click ↻ after running live.py.
+    function reload(){ document.getElementById('v').src = 'outputs/latest.mp4?t=' + Date.now(); }
+    reload();
+  </script>
+</body>
+</html>

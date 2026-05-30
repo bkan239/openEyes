@@ -18,7 +18,26 @@ bash services/recon3d/inference/setup.sh
 ```
 Clones AnySplat, builds the isolated venv, installs deps, prints a CUDA check.
 
-## Run
+## Live demo: fetch the app's captures → one hero fly-through
+
+The main app collects everyone's photos and serves them as a **zip at a plain URL**.
+On-demand, one command fetches + unzips + reconstructs **one clean 1080p fly-through**:
+
+```bash
+source .venv-anysplat/bin/activate
+python live.py --url "https://.../captures.zip"
+# -> outputs/live/hero.mp4  and  outputs/latest.mp4
+```
+Show it big (full-screen, looping):
+```bash
+python -m http.server 8080      # then open http://localhost:8080/show.html
+```
+`live.py` finds images recursively (nested zip OK), auto-converts HEIC, renders a
+single smooth sweep through the recovered poses (novel in-between views = visible
+3D), and upscales to 1080p with ffmpeg. It loads the model fresh each run (~1–2 min);
+for instant repeated runs keep the warm server (below) up instead.
+
+## Run (manual / testing)
 
 **One-shot (test / A-B vs the optimization pipeline):**
 ```bash

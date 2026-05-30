@@ -32,8 +32,9 @@ IMG_EXTS = (".jpg", ".jpeg", ".png")
 
 
 def _convert_heic(image_dir: Path) -> None:
-    """iPhone HEIC/HEIF -> JPG (idempotent; no-op if none)."""
-    heics = [p for p in image_dir.iterdir() if p.suffix.lower() in (".heic", ".heif")]
+    """iPhone HEIC/HEIF -> JPG (idempotent; no-op if none). Recursive — a fetched
+    zip may nest the photos in a subfolder."""
+    heics = [p for p in image_dir.rglob("*") if p.suffix.lower() in (".heic", ".heif")]
     if not heics:
         return
     import pillow_heif
@@ -49,10 +50,11 @@ def _convert_heic(image_dir: Path) -> None:
 
 
 def _list_images(image_dir: Path) -> list[str]:
+    """All images under image_dir, recursively (handles nested zip layouts)."""
     paths: set[str] = set()
     for e in IMG_EXTS:
-        paths.update(str(p) for p in image_dir.glob(f"*{e}"))
-        paths.update(str(p) for p in image_dir.glob(f"*{e.upper()}"))
+        paths.update(str(p) for p in image_dir.rglob(f"*{e}"))
+        paths.update(str(p) for p in image_dir.rglob(f"*{e.upper()}"))
     return sorted(paths)
 
 
@@ -156,3 +158,60 @@ def reconstruct(model, image_dir, out_dir, device: str = "cuda", trajectories: b
 
     print(f"[anysplat] {k} imgs -> {len(videos)} videos in {time.time() - t0:.1f}s -> {out_dir}")
     return videos
+
+
+def reconstruct_hero(model, image_dir, out_dir, device: str = "cuda",
+                     t: int = 24, height: int = 1080) -> Path:
+    """ONE clean, big hero fly-through (for the live demo).
+
+    Renders a single smooth forward sweep through the predicted poses (the
+    in-between frames are NOVEL views → visible parallax = clearly a 3D
+    reconstruction), then upscales the RGB render to ``height`` (default 1080p)
+    with ffmpeg for a crisp, large video. Returns the hero mp4 path.
+    """
+    import shutil
+    import subprocess
+
+    import torch
+    from src.utils.image import process_image
+    from src.misc.image_io import save_interpolated_video
+
+    image_dir = Path(image_dir)
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    _convert_heic(image_dir)
+    paths = _list_images(image_dir)
+    if not paths:
+        raise SystemExit(f"[anysplat] no images found under {image_dir}")
+
+    imgs = torch.stack([process_image(p) for p in paths], dim=0).unsqueeze(0)
+    imgs = imgs.to("cuda" if torch.cuda.is_available() else device)
+    b, k, _, h, w = imgs.shape
+
+    t0 = time.time()
+    with torch.inference_mode():
+        gaussians, pose = model.inference((imgs + 1) * 0.5)
+    extrinsic, intrinsic = pose["extrinsic"], pose["intrinsic"]
+    print(f"[anysplat] hero: inference {k} imgs in {time.time() - t0:.1f}s; rendering sweep (t={t})...")
+
+    tmp = out_dir / "_hero"
+    tmp.mkdir(parents=True, exist_ok=True)
+    save_interpolated_video(extrinsic, intrinsic, b, h, w, gaussians, str(tmp), model.decoder, t=t)
+    rgb = tmp / "rgb.mp4"
+    if not rgb.exists():
+        raise SystemExit(f"[anysplat] no rgb.mp4 produced in {tmp}")
+
+    hero = out_dir / "hero.mp4"
+    try:                          # upscale to a clean, big 1080p video
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", str(rgb),
+             "-vf", f"scale=-2:{height}:flags=lanczos",
+             "-c:v", "libx264", "-crf", "16", "-pix_fmt", "yuv420p", str(hero)],
+            check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception as e:
+        print(f"[anysplat] ffmpeg upscale skipped ({e}); using native render")
+        shutil.copy(rgb, hero)
+
+    print(f"[anysplat] hero -> {hero} in {time.time() - t0:.1f}s ({k} imgs, {height}p)")
+    return hero
