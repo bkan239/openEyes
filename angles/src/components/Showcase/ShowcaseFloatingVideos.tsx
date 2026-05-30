@@ -3,6 +3,7 @@ import { useApp } from "@/state/store";
 import type { UserMedia } from "@/lib/types";
 import { clipDurationMs, clipOffsetSecondsFromWall, DEFAULT_CLIP_SECONDS } from "@/lib/livePlayback";
 import { mapPinThumbnailUrl, PRETTI_STORY_ID } from "@/lib/demo";
+import { isClipWarm } from "@/lib/videoPreload";
 import { cameraAccentColor } from "@/lib/cameraColors";
 import {
   computeSpawnRect,
@@ -268,7 +269,7 @@ function FloatingPanel(props: {
 
   const [dimInactive, setDimInactive] = useState(false);
   const dimRef = useRef(false);
-  const [frameReady, setFrameReady] = useState(false);
+  const [frameReady, setFrameReady] = useState(() => isClipWarm(props.id));
 
   const panelRef = useRef<HTMLDivElement | null>(null);
   /** Pin spawn scales this layer — holds accent ring, chrome, and video so React opacity/z-index updates stay on the outer shell */
@@ -353,7 +354,7 @@ function FloatingPanel(props: {
   };
 
   useEffect(() => {
-    setFrameReady(false);
+    setFrameReady(isClipWarm(props.id));
     const v = videoRef.current;
     if (!v || !props.isVideo || !props.videoSrc) return;
 

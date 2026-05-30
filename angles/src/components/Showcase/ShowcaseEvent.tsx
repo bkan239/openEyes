@@ -11,6 +11,7 @@ import {
   prettiItemsBounds
 } from "@/lib/demo";
 import { endOfDay } from "@/lib/time";
+import { preloadClipsSequential } from "@/lib/videoPreload";
 
 /** Opening establishing shot — urban context (was continental ~11). */
 const INTRO_WIDE_ZOOM = 15.6;
@@ -113,6 +114,14 @@ export function ShowcaseEvent() {
       cancelled = true;
     };
   }, [setPrettiOverlayItems, setRange, setSelectedStoryId, setStoryMedia]);
+
+  /** Warm all clips sequentially (timeline order) once the demo surface is up — cache before pin clicks. */
+  useEffect(() => {
+    if (!surfaceReady) return;
+    const items = useApp.getState().prettiOverlayItems;
+    if (!items.length) return;
+    return preloadClipsSequential(items);
+  }, [surfaceReady]);
 
   useEffect(() => {
     if (!surfaceReady) return;
