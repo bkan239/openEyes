@@ -13,12 +13,12 @@ export type CaptureRecord = {
   uploadedAt: string;
 };
 
-export function requireBlobToken(): string {
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
-  if (!token) {
-    throw new Error("Missing BLOB_READ_WRITE_TOKEN in environment");
-  }
-  return token;
+export function getBlobToken(): string | undefined {
+  return (
+    process.env.BLOB_READ_WRITE_TOKEN ??
+    process.env.BLOB_READWRITE_TOKEN ??
+    process.env["BLOB:READWRITE_TOKEN"]
+  );
 }
 
 function extensionForContentType(contentType: string): string {
@@ -61,7 +61,7 @@ function parseCaptureFromPathname(pathname: string): { capturedAtMs: number; id:
 }
 
 export async function putCaptureFromDataUrl(dataUrl: string, capturedAt: string): Promise<CaptureRecord> {
-  const token = requireBlobToken();
+  const token = getBlobToken();
   const match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(dataUrl);
   if (!match) {
     throw new Error("Expected image data URL");
@@ -80,7 +80,7 @@ export async function putCaptureFromDataUrl(dataUrl: string, capturedAt: string)
 
   const blob = await put(pathname, data, {
     access: "public",
-    token,
+    ...(token ? { token } : {}),
     contentType,
     addRandomSuffix: false,
   });
@@ -98,9 +98,9 @@ export async function putCaptureFromDataUrl(dataUrl: string, capturedAt: string)
 }
 
 export async function listCaptures(limit: number): Promise<CaptureRecord[]> {
-  const token = requireBlobToken();
+  const token = getBlobToken();
   const { blobs } = await list({
-    token,
+    ...(token ? { token } : {}),
     limit,
     prefix: CAPTURE_PREFIX,
   });
