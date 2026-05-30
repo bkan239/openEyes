@@ -10,6 +10,11 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+# 0) system build deps: Python 3.10 headers (Python.h) + a compiler, needed to
+#    build torch-scatter / pytorch3d CUDA extensions.
+apt-get install -y python3.10-dev build-essential 2>/dev/null || \
+  echo "WARNING: could not apt-get python3.10-dev — install it if a build hits 'Python.h: No such file'"
+
 # 1) AnySplat source (MIT). Try the primary org, fall back to the mirror.
 if [ ! -d AnySplat ]; then
   git clone https://github.com/InternRobotics/AnySplat.git \
@@ -25,6 +30,7 @@ source .venv-anysplat/bin/activate
 # 3) deps — torch first (cu121), then build tools, then AnySplat's requirements.
 uv pip install torch==2.2.0 torchvision==0.17.0 torchaudio==2.2.0 \
   --index-url https://download.pytorch.org/whl/cu121
+uv pip install "numpy<2"          # torch 2.2 is NOT compatible with numpy 2.x
 
 # pytorch3d (and other CUDA-extension deps) import torch AT BUILD TIME, which a
 # PEP517 isolated build can't see -> install with --no-build-isolation, with the
@@ -37,7 +43,7 @@ fi
 export MAX_JOBS="${MAX_JOBS:-4}"
 nvcc --version || echo "WARNING: no nvcc found — pytorch3d CUDA build may fail; apt-get install -y cuda-toolkit-12-1"
 uv pip install -r AnySplat/requirements.txt --no-build-isolation
-uv pip install pillow-heif        # iPhone HEIC -> JPG
+uv pip install "numpy<2" pillow-heif   # re-pin numpy<2 (in case reqs bumped it) + HEIC
 
 python - <<'PY'
 import torch
