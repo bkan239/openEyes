@@ -69,6 +69,35 @@ The GLB is frontend-agnostic — it can later be handed to the `angles/` or
 The viewer has a **Cinematic** dropdown (orbit / witness-path) + speed slider —
 screen-record it for the pitch, or run it live.
 
+## One-shot pipeline (photos/clip → fly-through video)
+
+`pipeline.py` chains everything — VGGT-Omega → Splatfacto → rendered fly-through —
+with deterministic output paths:
+
+```bash
+# folder of photos -> fly-through MP4:
+python pipeline.py --images-dir data/easy_data/pics --out roomtest \
+    --checkpoint /workspace/checkpoints/vggt_omega_1b_512.pt
+
+# a video clip instead:
+python pipeline.py --clip data/clips/myvid.mp4 --start 6 --end 16 --out hero ...
+```
+Output: `roomtest/flythrough.mp4` (plus `roomtest/scene.glb`, `roomtest/nerfstudio/`,
+and the trained splat under `roomtest/nerf/run/<method>/splat/`).
+
+**Tweak the trajectory without recomputing** (seconds, reuses the trained splat):
+```bash
+python pipeline.py --out roomtest --skip-recon --skip-train \
+    --interpolation-steps 60 --frame-rate 60          # slower, smoother
+# or a fully custom path designed in the ns-viewer RENDER tab:
+python pipeline.py --out roomtest --skip-recon --skip-train \
+    --camera-path roomtest/nerfstudio/camera_paths/mine.json
+```
+Knobs: `--iterations`, `--method splatfacto-big`, `--max-frames`, `--mask-people`,
+`--people-frame N`, `--voxel`, `--interpolation-steps`, `--frame-rate`,
+`--pose-source train|eval`, `--order-poses`. (It sets `TORCHDYNAMO_DISABLE=1`
+for you.)
+
 ## Photorealistic novel views (Gaussian Splatting)
 
 For the "regenerate the scene from a new camera" wow, export a nerfstudio dataset
