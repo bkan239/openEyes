@@ -84,6 +84,18 @@ def replace_cluster_articles(cluster_id: str, articles: list[NewsArticle]) -> No
         put_news_article(article)
 
 
+def clear_all_news_clusters(limit: int = 5000) -> None:
+    """Delete all news clusters plus their per-article index entries."""
+    items = scan_meta_with_pk_prefix("NEWS#CLUSTER#", limit=limit)
+    for item in items:
+        pk = str(item.get("pk", ""))
+        if not pk.startswith("NEWS#CLUSTER#"):
+            continue
+        cluster_id = pk.removeprefix("NEWS#CLUSTER#")
+        delete_cluster_articles(cluster_id)
+        delete_item(pk, "META")
+
+
 def find_cluster_by_article_ids(article_ids: list[str]) -> str | None:
     for article_id in article_ids:
         item = get_item(f"NEWS#ARTICLE#{article_id}", "META")

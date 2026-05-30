@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import math
 import re
+from difflib import SequenceMatcher
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
@@ -93,6 +94,32 @@ def _entity_overlap(group_a: ArticleGroup, group_b: ArticleGroup) -> float:
     return _jaccard(_title_entities(group_a), _title_entities(group_b))
 
 
+def _title_similarity(a: str, b: str) -> float:
+    a_norm = " ".join(re.findall(r"[a-z0-9]+", a.lower()))
+    b_norm = " ".join(re.findall(r"[a-z0-9]+", b.lower()))
+    if not a_norm or not b_norm:
+        return 0.0
+    a_set = set(a_norm.split())
+    b_set = set(b_norm.split())
+    jacc = _jaccard(a_set, b_set)
+    seq = SequenceMatcher(None, a_norm, b_norm).ratio()
+    contains_bonus = 1.0 if (a_norm in b_norm or b_norm in a_norm) and min(len(a_norm), len(b_norm)) >= 24 else 0.0
+    return max(jacc, seq, contains_bonus)
+
+
+def _fallback_similarity(item: EmbeddedArticle, group: ArticleGroup) -> float:
+    """Lexical/time fallback when embeddings are unavailable."""
+    if not group.articles:
+        return 0.0
+    item_dt = _parse_iso_dt(item.raw.published_at)
+    group_dt = _group_latest_datetime(group)
+    dt_gap = abs((item_dt - group_dt).total_seconds())
+    if dt_gap > 24 * 3600:
+        return 0.0
+    sims = [_title_similarity(item.raw.title, g.raw.title) for g in group.articles[:8]]
+    return max(sims) if sims else 0.0
+
+
 def _merge_related_groups(
     groups: list[ArticleGroup],
     sim_threshold: float,
@@ -174,9 +201,14 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
 
     from openai import OpenAI
 
-    client = OpenAI(api_key=settings.openai_api_key)
-    resp = client.embeddings.create(model=settings.openai_embedding_model, input=texts)
-    return [item.embedding for item in resp.data]
+    try:
+        client = OpenAI(api_key=settings.openai_api_key)
+        resp = client.embeddings.create(model=settings.openai_embedding_model, input=texts)
+        return [item.embedding for item in resp.data]
+    except Exception:
+        # Quota/auth/provider outages should not break manual ingest.
+        # Fall back to lexical-only clustering path.
+        return [[] for _ in texts]
 
 
 def embed_articles(articles: list[RawNewsArticle]) -> list[EmbeddedArticle]:
@@ -213,17 +245,23 @@ def cluster_embedded_articles(
             dt_gap = abs((item_dt - _group_latest_datetime(group)).total_seconds())
             if dt_gap > max_assignment_gap_seconds:
                 continue
-            sim = cosine_similarity(item.embedding, group.centroid)
+            if item.embedding and group.centroid:
+                sim = cosine_similarity(item.embedding, group.centroid)
+            else:
+                sim = _fallback_similarity(item, group)
             if sim > best_sim:
                 best_sim = sim
                 best_idx = i
 
-        if best_idx >= 0 and best_sim >= sim_threshold:
+        fallback_threshold = 0.78
+        required_threshold = sim_threshold if item.embedding else fallback_threshold
+
+        if best_idx >= 0 and best_sim >= required_threshold:
             group = groups[best_idx]
             title_overlap = _jaccard(item_title_tokens, _title_tokens(group))
             entity_overlap = _jaccard(item_entities, _title_entities(group))
             strong_similarity = best_sim >= (sim_threshold + 0.1)
-            if strong_similarity or title_overlap >= 0.2 or entity_overlap >= 0.2:
+            if (not item.embedding) or strong_similarity or title_overlap >= 0.2 or entity_overlap >= 0.2:
                 group.articles.append(item)
                 group.centroid = _mean_embedding([a.embedding for a in group.articles])
             else:
@@ -268,7 +306,7 @@ def _enrich_with_llm(group: ArticleGroup) -> dict:
     )
     latest = _latest_published(raws)
 
-    if not settings.openai_api_key:
+    def _fallback_enrichment() -> dict:
         title = raws[0].title
         return {
             "title": title,
@@ -283,38 +321,45 @@ def _enrich_with_llm(group: ArticleGroup) -> dict:
             "occurred_at": latest,
         }
 
+    if not settings.openai_api_key:
+        return _fallback_enrichment()
+
     from openai import OpenAI
 
-    client = OpenAI(api_key=settings.openai_api_key)
-    system = (
-        "You cluster news coverage into one real-world story. "
-        "Respond as JSON with keys: title (concise headline), summary (2-4 sentences "
-        "explaining what happened), location_label (city/region/country where the event "
-        "occurred), lat, lng (approximate coordinates), occurred_at (ISO-8601 UTC estimate "
-        "of when the event happened — use the latest credible reporting time if unsure)."
-    )
-    user = (
-        f"Latest article timestamp: {latest}\n\n"
-        f"Articles in this cluster:\n{headlines}\n\n"
-        "Produce one consolidated story."
-    )
-    resp = client.chat.completions.create(
-        model=settings.openai_model,
-        response_format={"type": "json_object"},
-        messages=[
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ],
-    )
-    data = json.loads(resp.choices[0].message.content or "{}")
-    return {
-        "title": str(data.get("title") or raws[0].title),
-        "summary": str(data.get("summary") or raws[0].summary or raws[0].title),
-        "location_label": str(data.get("location_label") or "Unknown"),
-        "lat": float(data.get("lat", 0.0)),
-        "lng": float(data.get("lng", 0.0)),
-        "occurred_at": str(data.get("occurred_at") or latest),
-    }
+    try:
+        client = OpenAI(api_key=settings.openai_api_key)
+        system = (
+            "You cluster news coverage into one real-world story. "
+            "Respond as JSON with keys: title (concise headline), summary (2-4 sentences "
+            "explaining what happened), location_label (city/region/country where the event "
+            "occurred), lat, lng (approximate coordinates), occurred_at (ISO-8601 UTC estimate "
+            "of when the event happened — use the latest credible reporting time if unsure)."
+        )
+        user = (
+            f"Latest article timestamp: {latest}\n\n"
+            f"Articles in this cluster:\n{headlines}\n\n"
+            "Produce one consolidated story."
+        )
+        resp = client.chat.completions.create(
+            model=settings.openai_model,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+        )
+        data = json.loads(resp.choices[0].message.content or "{}")
+        return {
+            "title": str(data.get("title") or raws[0].title),
+            "summary": str(data.get("summary") or raws[0].summary or raws[0].title),
+            "location_label": str(data.get("location_label") or "Unknown"),
+            "lat": float(data.get("lat", 0.0)),
+            "lng": float(data.get("lng", 0.0)),
+            "occurred_at": str(data.get("occurred_at") or latest),
+        }
+    except Exception:
+        # Keep ingest operational when the LLM provider is unavailable or over quota.
+        return _fallback_enrichment()
 
 
 def build_cluster(

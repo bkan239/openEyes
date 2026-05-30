@@ -4,25 +4,30 @@ import MapKit
 import SwiftUI
 
 struct MapScreenView: View {
+    @ObservedObject var feedStore: NewsFeedStore
     @Binding var focusTarget: MapFocusTarget?
-    var mapPins: [MapEventPin] = MockData.mapPins
 
     @State private var position = MapCameraPosition.region(
         MKCoordinateRegion(
-            center: CLLocationCoordinate2D(latitude: 47.3769, longitude: 8.5417),
-            span: MKCoordinateSpan(latitudeDelta: 0.08, longitudeDelta: 0.08)
+            center: CLLocationCoordinate2D(latitude: 20, longitude: 0),
+            span: MKCoordinateSpan(latitudeDelta: 120, longitudeDelta: 120)
         )
     )
     @State private var lastCamera: MapCamera?
-    @State private var fromDate = Calendar.current.date(byAdding: .month, value: -1, to: Date())!
-    @State private var toDate = Date()
+    @State private var fromDate = Calendar.current.date(byAdding: .year, value: -1, to: Date())!
+    @State private var toDate = Calendar.current.date(byAdding: .day, value: 1, to: Date())!
     @State private var mapLoaded = false
     @State private var isSearching = false
     @State private var searchText = ""
     @State private var is3DMode = false
+    @State private var didAutoFitPins = false
     @StateObject private var locationManager = MapLocationManager()
     @StateObject private var searchCompleter = LocationSearchCompleter()
     @FocusState private var searchFocused: Bool
+
+    private var mapPins: [MapEventPin] {
+        feedStore.mapPins
+    }
 
     private var filteredPins: [MapEventPin] {
         mapPins.filter { $0.date >= fromDate && $0.date <= toDate }
@@ -38,29 +43,220 @@ struct MapScreenView: View {
             }
 
             VStack(spacing: 0) {
-                topOverlay
-                    .background(topOverlayBackground)
-                Spacer()
-                bottomOverlay
+                if isSearching {
+                    searchPanel
+                } else {
+                    mapHeader
+                }
+
+                Spacer(minLength: 0)
+
+                if !isSearching {
+                    bottomOverlay
+                }
             }
         }
         .onAppear {
             applyFocusTargetIfNeeded(focusTarget)
         }
+        .task {
+            await feedStore.refresh()
+            autoFitMapToPinsIfNeeded()
+        }
+        .onChange(of: feedStore.mapPins.map(\.id)) { _, _ in
+            autoFitMapToPinsIfNeeded()
+        }
         .onChange(of: focusTarget) { _, target in
             applyFocusTargetIfNeeded(target)
         }
-        .ignoresSafeArea(.keyboard)
     }
 
-    private var topOverlayBackground: some View {
+    private func autoFitMapToPinsIfNeeded() {
+        guard focusTarget == nil, !didAutoFitPins else { return }
+        let pins = filteredPins.isEmpty ? mapPins : filteredPins
+        guard !pins.isEmpty else { return }
+        fitMapToPins(pins)
+        didAutoFitPins = true
+    }
+
+    private func fitMapToPins(_ pins: [MapEventPin]) {
+        guard let first = pins.first else { return }
+
+        if pins.count == 1 {
+            withAnimation(.easeInOut(duration: 0.6)) {
+                position = .region(
+                    MKCoordinateRegion(
+                        center: first.coordinate,
+                        span: MKCoordinateSpan(latitudeDelta: 0.25, longitudeDelta: 0.25)
+                    )
+                )
+            }
+            return
+        }
+
+        var minLat = first.latitude
+        var maxLat = first.latitude
+        var minLng = first.longitude
+        var maxLng = first.longitude
+
+        for pin in pins.dropFirst() {
+            minLat = min(minLat, pin.latitude)
+            maxLat = max(maxLat, pin.latitude)
+            minLng = min(minLng, pin.longitude)
+            maxLng = max(maxLng, pin.longitude)
+        }
+
+        let center = CLLocationCoordinate2D(
+            latitude: (minLat + maxLat) / 2,
+            longitude: (minLng + maxLng) / 2
+        )
+        let latDelta = max((maxLat - minLat) * 1.45, 0.15)
+        let lngDelta = max((maxLng - minLng) * 1.45, 0.15)
+
+        withAnimation(.easeInOut(duration: 0.6)) {
+            position = .region(
+                MKCoordinateRegion(
+                    center: center,
+                    span: MKCoordinateSpan(latitudeDelta: latDelta, longitudeDelta: lngDelta)
+                )
+            )
+        }
+    }
+
+    private var mapHeaderGradient: some View {
         LinearGradient(
-            colors: [Ink.ink.opacity(isSearching ? 0.88 : 0.72), Ink.ink.opacity(0)],
+            colors: [Ink.ink.opacity(0.72), Ink.ink.opacity(0)],
             startPoint: .top,
             endPoint: .bottom
         )
-        .ignoresSafeArea()
         .allowsHitTesting(false)
+    }
+
+    private var mapHeader: some View {
+        HStack {
+            Text("Map")
+                .font(InkFont.title())
+                .foregroundStyle(Ink.onInk)
+            Spacer()
+            Button {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    isSearching = true
+                }
+                searchFocused = true
+            } label: {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(Ink.onInk)
+                    .frame(width: 40, height: 40)
+                    .background(Circle().fill(Ink.onInk.opacity(0.15)))
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 10)
+        .padding(.bottom, 16)
+        .background(mapHeaderGradient.ignoresSafeArea(edges: .top))
+    }
+
+    private var searchPanel: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundStyle(Ink.onInkMuted)
+                        .font(.system(size: 16))
+                    TextField("Search locations…", text: $searchText)
+                        .font(InkFont.body(15))
+                        .foregroundStyle(Ink.onInk)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .focused($searchFocused)
+                        .submitLabel(.search)
+                        .onChange(of: searchText) { _, value in
+                            searchCompleter.search(value)
+                        }
+                    if !searchText.isEmpty {
+                        Button { searchText = "" } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(Ink.onInkMuted)
+                        }
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(Ink.onInk.opacity(0.12))
+                )
+
+                Button("Cancel") {
+                    dismissSearch()
+                }
+                .foregroundStyle(Ink.onInk)
+                .font(.system(size: 15, weight: .medium))
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 10)
+            .padding(.bottom, 10)
+
+            if !searchCompleter.results.isEmpty {
+                Divider()
+                    .background(Ink.onInk.opacity(0.12))
+
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(Array(searchCompleter.results.enumerated()), id: \.offset) { index, completion in
+                            Button { selectCompletion(completion) } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "mappin")
+                                        .foregroundStyle(Ink.primaryOnInk)
+                                        .frame(width: 20)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(completion.title)
+                                            .font(.system(size: 15, weight: .medium))
+                                            .foregroundStyle(Ink.onInk)
+                                            .multilineTextAlignment(.leading)
+                                        if !completion.subtitle.isEmpty {
+                                            Text(completion.subtitle)
+                                                .font(.system(size: 12))
+                                                .foregroundStyle(Ink.onInkMuted)
+                                                .lineLimit(2)
+                                                .multilineTextAlignment(.leading)
+                                        }
+                                    }
+                                    Spacer(minLength: 0)
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 12)
+                            }
+                            if index < searchCompleter.results.count - 1 {
+                                Divider()
+                                    .background(Ink.onInk.opacity(0.08))
+                                    .padding(.leading, 48)
+                            }
+                        }
+                    }
+                }
+                .scrollDismissesKeyboard(.interactively)
+                .frame(maxHeight: min(CGFloat(searchCompleter.results.count) * 60, 280))
+            } else if !searchText.isEmpty {
+                Text("No locations found")
+                    .font(InkFont.body(14))
+                    .foregroundStyle(Ink.onInkMuted)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+            }
+        }
+        .background(Ink.ink.opacity(0.96).ignoresSafeArea(edges: .top))
+    }
+
+    private func dismissSearch() {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            isSearching = false
+            searchText = ""
+            searchCompleter.clear()
+            searchFocused = false
+        }
     }
 
     private var mapLayer: some View {
@@ -97,110 +293,6 @@ struct MapScreenView: View {
                     .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(Ink.onInkMuted)
             }
-        }
-    }
-
-    private var topOverlay: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                if isSearching {
-                    HStack(spacing: 8) {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundStyle(Ink.onInkMuted)
-                            .font(.system(size: 16))
-                        TextField("Search locations…", text: $searchText)
-                            .font(InkFont.body(15))
-                            .foregroundStyle(Ink.onInk)
-                            .autocorrectionDisabled()
-                            .textInputAutocapitalization(.never)
-                            .focused($searchFocused)
-                            .onChange(of: searchText) { _, value in
-                                searchCompleter.search(value)
-                            }
-                        if !searchText.isEmpty {
-                            Button { searchText = "" } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundStyle(Ink.onInkMuted)
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(Ink.onInk.opacity(0.15))
-                    )
-
-                    Button("Cancel") {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                            isSearching = false
-                            searchText = ""
-                            searchCompleter.clear()
-                            searchFocused = false
-                        }
-                    }
-                    .foregroundStyle(Ink.onInk)
-                    .font(.system(size: 15, weight: .medium))
-                } else {
-                    Text("Map")
-                        .font(InkFont.title())
-                        .foregroundStyle(Ink.onInk)
-                    Spacer()
-                    Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                            isSearching = true
-                            searchFocused = true
-                        }
-                    } label: {
-                        Image(systemName: "magnifyingglass")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(Ink.onInk)
-                            .frame(width: 40, height: 40)
-                            .background(Circle().fill(Ink.onInk.opacity(0.15)))
-                    }
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 10)
-            .padding(.bottom, 8)
-
-            if isSearching && !searchCompleter.results.isEmpty {
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        ForEach(searchCompleter.results, id: \.self) { completion in
-                            Button { selectCompletion(completion) } label: {
-                                HStack(spacing: 12) {
-                                    Image(systemName: "mappin")
-                                        .foregroundStyle(Ink.onInkMuted)
-                                        .frame(width: 20)
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(completion.title)
-                                            .font(.system(size: 15, weight: .medium))
-                                            .foregroundStyle(Ink.onInk)
-                                        if !completion.subtitle.isEmpty {
-                                            Text(completion.subtitle)
-                                                .font(.system(size: 12))
-                                                .foregroundStyle(Ink.onInkMuted)
-                                                .lineLimit(1)
-                                        }
-                                    }
-                                    Spacer()
-                                }
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 12)
-                            }
-                            Divider().background(Ink.onInk.opacity(0.1))
-                        }
-                    }
-                }
-                .frame(height: min(CGFloat(searchCompleter.results.count) * 56, 320))
-                .background(.ultraThinMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .padding(.horizontal, 16)
-                .transition(.opacity.combined(with: .move(edge: .top)))
-            }
-
-            Spacer()
         }
     }
 
@@ -283,16 +375,14 @@ struct MapScreenView: View {
 
             withAnimation(.easeInOut(duration: 0.6)) {
                 position = .region(MKCoordinateRegion(center: coord, span: span))
-                isSearching = false
-                searchText = ""
-                searchCompleter.clear()
-                searchFocused = false
             }
+            dismissSearch()
         }
     }
 
     private func applyFocusTargetIfNeeded(_ target: MapFocusTarget?) {
         guard let target else { return }
+        didAutoFitPins = true
         let region = MKCoordinateRegion(
             center: target.coordinate,
             span: MKCoordinateSpan(latitudeDelta: target.span, longitudeDelta: target.span)
@@ -462,5 +552,5 @@ final class LocationSearchCompleter: NSObject, ObservableObject, MKLocalSearchCo
 }
 
 #Preview {
-    MapScreenView(focusTarget: .constant(nil))
+    MapScreenView(feedStore: NewsFeedStore(), focusTarget: .constant(nil))
 }

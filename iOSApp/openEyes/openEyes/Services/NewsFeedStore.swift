@@ -10,13 +10,16 @@ final class NewsFeedStore: ObservableObject {
 
     private let service = NewsService()
 
-    func refresh() async {
+    /// Clusters shown on the map must have at least this many corroborating articles.
+    static let mapMinimumArticleCount = NewsStoryMapper.mapMinimumArticleCount
+
+    func refresh(limit: Int = 100) async {
         isLoading = true
         loadError = nil
         defer { isLoading = false }
 
         do {
-            let clusters = try await service.fetchClusters()
+            let clusters = try await service.fetchClusters(limit: limit)
             guard !clusters.isEmpty else {
                 stories = MockData.stories
                 isUsingMockFallback = true
@@ -50,6 +53,14 @@ final class NewsFeedStore: ObservableObject {
     }
 
     var mapPins: [MapEventPin] {
-        stories.map(NewsStoryMapper.mapPin(from:))
+        mapStories.map(NewsStoryMapper.mapPin(from:))
+    }
+
+    private var mapStories: [NewsStory] {
+        let candidates = isUsingMockFallback ? MockData.stories : stories
+        return candidates.filter { story in
+            story.articleCount >= Self.mapMinimumArticleCount
+                && NewsStoryMapper.isPlottableCoordinate(story.mapCenter)
+        }
     }
 }

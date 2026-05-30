@@ -12,11 +12,10 @@ enum APIConfig {
             return url
         }
 
-        #if DEBUG
-        return URL(string: "http://127.0.0.1:8000")!
-        #else
         // Azure App Service (openeyes-dev). GitHub Actions deploys openeyes-prod on push to main.
+        //
+        // For local backend testing, set OPENEYES_API_BASE_URL in the Xcode scheme
+        // (for example: http://192.168.x.x:8000).
         return URL(string: "https://app-api-w2xlpc7ldi7ve.azurewebsites.net")!
-        #endif
     }
 }

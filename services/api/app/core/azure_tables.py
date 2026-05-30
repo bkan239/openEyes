@@ -138,12 +138,17 @@ def query_by_pk_sk_prefix(pk: str, sk_prefix: str) -> list[dict[str, Any]]:
 def scan_meta_pk_prefix(pk_prefix: str, limit: int = 50) -> list[dict[str, Any]]:
     _ensure_table()
     table = _client().get_table_client(_table_name())
+    enc_prefix = _odata(_encode_key(pk_prefix))
+    enc_prefix_upper = _odata(_encode_key(f"{pk_prefix}~"))
     enc_meta = _odata(_encode_key("META"))
     items: list[dict[str, Any]] = []
-    for entity in table.query_entities(query_filter=f"RowKey eq '{enc_meta}'"):
+    filt = (
+        f"RowKey eq '{enc_meta}' and "
+        f"PartitionKey ge '{enc_prefix}' and PartitionKey lt '{enc_prefix_upper}'"
+    )
+    for entity in table.query_entities(query_filter=filt):
         item = _from_entity(dict(entity))
-        if item["pk"].startswith(pk_prefix):
-            items.append(item)
-            if len(items) >= limit:
-                break
+        items.append(item)
+        if len(items) >= limit:
+            break
     return items
