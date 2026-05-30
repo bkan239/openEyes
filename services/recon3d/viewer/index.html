@@ -30,7 +30,7 @@
     <h1>OpenEyes — reconstructed scene</h1>
     <p>drag to orbit · scroll to zoom · right-drag to pan</p>
     <div class="row"><label>Point size (px)</label><input id="size" type="range" min="0.5" max="10" step="0.5" value="2"></div>
-    <div class="row"><label>Show cameras</label><input id="cams" type="checkbox" checked></div>
+    <div class="row"><label>Show cameras</label><input id="cams" type="checkbox"></div>
     <div class="row"><button id="bg">Toggle background</button><button id="fit">Recenter</button></div>
     <input id="file" type="file" accept=".glb,.gltf" />
     <div id="status">loading…</div>
@@ -48,8 +48,9 @@
     import { OrbitControls } from "three/addons/controls/OrbitControls.js";
     import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-    // ?src=../out_single/scene.glb  to point at another run; defaults to ../out/scene.glb
-    const SRC = new URLSearchParams(location.search).get("src") || "../out/scene.glb";
+    // Auto-loads viewer/scene_final.glb on open (zero clicks for the demo).
+    // Override with ?src=../out_single2/scene.glb to point at any run.
+    const SRC = new URLSearchParams(location.search).get("src") || "scene_final.glb";
 
     const canvas = document.getElementById("canvas");
     const status = document.getElementById("status");
@@ -107,6 +108,7 @@
             o.material = new THREE.MeshBasicMaterial({ color: 0xff5050 });
           }
         });
+        for (const c of cameraNodes) c.visible = camsEl.checked;   // honor toggle on load
         scene.add(modelRoot);
         frame();
         status.textContent = `${nPoints.toLocaleString()} points · ${cameraNodes.length} cameras`;
@@ -115,8 +117,9 @@
     }
 
     const sizeEl = document.getElementById("size");
+    const camsEl = document.getElementById("cams");
     sizeEl.addEventListener("input", () => applySize(parseFloat(sizeEl.value)));
-    document.getElementById("cams").addEventListener("change", (e) => {
+    camsEl.addEventListener("change", (e) => {
       for (const c of cameraNodes) c.visible = e.target.checked;
     });
     document.getElementById("bg").addEventListener("click", () => {
