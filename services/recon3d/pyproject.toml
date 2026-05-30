@@ -1,0 +1,31 @@
+[project]
+name = "recon3d"
+version = "0.1.0"
+description = "OpenEyes 3D reconstruction service (VGGT / VGGT-Omega) — self-contained, runs on a CUDA GPU (RunPod)."
+requires-python = ">=3.11"
+
+# NOTE: torch + the VGGT model only install/run on a CUDA Linux box (RunPod Pod),
+# not on the dev Mac. On the Pod, install torch matching the CUDA image first,
+# then `pip install -e .` here, then the upstream VGGT(-Omega) repo.
+dependencies = [
+    "numpy",
+    "opencv-python-headless",
+    "trimesh",
+    "huggingface-hub",
+    "tqdm",
+]
+
+[project.optional-dependencies]
+# Installed on the GPU pod. torch is usually preinstalled in the RunPod PyTorch
+# image; pin here only if you need a specific build.
+gpu = [
+    "torch",
+    "torchvision",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["core"]

@@ -1,0 +1,16 @@
+# Generated reconstructions (large) — keep the final demo scene.glb if you want
+# it committed, but ignore intermediate dumps by default.
+out/frames/
+out/*.ply
+*.pt
+*.pth
+*.ckpt
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.uv/
+
+# Model checkpoints downloaded from HF
+checkpoints/

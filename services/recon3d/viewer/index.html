@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OpenEyes — 3D reconstruction</title>
+  <!-- model-viewer: one tag renders a GLB, orbit/zoom built in. No build step. -->
+  <script type="module"
+    src="https://unpkg.com/@google/model-viewer@4.0.0/dist/model-viewer.min.js"></script>
+  <style>
+    :root { color-scheme: dark; }
+    body { margin: 0; background: #0a0c10; color: #e6e9ef; font: 14px/1.5 system-ui, sans-serif; }
+    header { padding: 14px 20px; border-bottom: 1px solid #1d2330; }
+    header h1 { margin: 0; font-size: 15px; font-weight: 600; }
+    header p { margin: 2px 0 0; color: #8b94a7; font-size: 12px; }
+    model-viewer { width: 100vw; height: calc(100vh - 58px); background: #0a0c10; }
+    .hint { position: fixed; bottom: 14px; left: 20px; color: #6b7488; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>OpenEyes — reconstructed scene</h1>
+    <p>26th &amp; Nicollet, Minneapolis — geometry recovered from independent eyewitness angles (VGGT&#8209;Omega)</p>
+  </header>
+
+  <!-- Drop the generated GLB at ../out/scene.glb (served by a static server). -->
+  <model-viewer
+    src="../out/scene.glb"
+    camera-controls
+    touch-action="pan-y"
+    interaction-prompt="none"
+    exposure="1.0"
+    shadow-intensity="0"
+    style="--poster-color: transparent;">
+  </model-viewer>
+
+  <div class="hint">drag to orbit · scroll to zoom · red markers are camera positions</div>
+</body>
+</html>

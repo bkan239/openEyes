@@ -1,0 +1,85 @@
+# recon3d — 3D reconstruction (VGGT / VGGT-Omega)
+
+The OpenEyes "wow" closer: rebuild scene geometry from independent eyewitness
+angles. Geometry that lines up across uncoordinated sources is extremely hard to
+fake — the strongest corroboration signal in the trust score.
+
+**Self-contained by design.** This folder owns its own copy of the demo clips
+(`data/clips/`), its own deps, and its own viewer. It does not read or write any
+sibling folder (`angles/`, `apps/web`, `services/api`) at runtime, so it can be
+developed and demoed without touching teammates' work.
+
+## What it does
+
+```
+data/clips/*.mp4  ──▶  frames  ──▶  VGGT(-Omega)  ──▶  out/scene.glb
+   (5 angles)        sharp, sampled   poses + depth     point cloud + cameras
+```
+
+- `core/frames.py` — sample sharp frames across the clips
+- `core/reconstruct.py` — run the model, normalize to a colored point cloud + camera poses
+- `core/export.py` — write a GLB (renders in any web 3D viewer)
+- `run.py` — CLI that wires the three together
+- `viewer/index.html` — standalone GLB viewer (`<model-viewer>`, no build step)
+
+## The model
+
+| | repo | gated? | license |
+| --- | --- | --- | --- |
+| **Target** | [`facebook/VGGT-Omega`](https://huggingface.co/facebook/VGGT-Omega) (VGGT-Omega-1B-512) | yes — request access | CC-BY-NC-4.0 |
+| **Fallback** | [`facebook/VGGT-1B`](https://huggingface.co/facebook/VGGT-1B) | no | — |
+
+Build against the ungated **VGGT-1B** first to prove the pipeline; swap to
+**VGGT-Omega** once access is granted — it's just `--backend omega --checkpoint ...`.
+
+## Running (on a CUDA GPU — RunPod Pod)
+
+This needs an NVIDIA GPU; it will **not** run on the dev Mac. A single
+RTX 4090 (24 GB) is plenty (≈7 GB for 10 frames, ≈13 GB for 100).
+
+```bash
+# 1) On a RunPod PyTorch/CUDA pod, clone this folder, then install upstream:
+git clone https://github.com/facebookresearch/vggt.git && pip install -e vggt   # fallback
+# (for Omega: clone facebookresearch/vggt-omega, pip install -e ., download ckpt)
+
+pip install -e .            # recon3d deps (opencv, trimesh, ...)
+
+# 2) Reconstruct (fallback model):
+python run.py --clips-dir data/clips --out out --backend vggt --max-frames 60
+
+# 3) Reconstruct (once Omega access granted):
+huggingface-cli login       # token with access to facebook/VGGT-Omega
+python run.py --clips-dir data/clips --out out \
+    --backend omega --checkpoint checkpoints/vggt-omega-1b-512.pt
+```
+
+Output: `out/scene.glb`. Download it from the pod, then **stop the pod**.
+
+## Viewing
+
+```bash
+# from services/recon3d/, serve the folder so the viewer can fetch out/scene.glb:
+python -m http.server 8080
+# open http://localhost:8080/viewer/
+```
+
+The GLB is frontend-agnostic — it can later be handed to the `angles/` or
+`apps/web` frontend (static asset or S3) without changing this service.
+
+## Tuning / troubleshooting
+
+- **Sparse or noisy cloud** → raise `--max-frames`, lower `--conf-percentile`.
+- **Out of memory** → lower `--max-frames` or `--resolution`.
+- **Poor multi-angle result** (the 5 angles have limited overlap) → fall back to
+  frames from one moving clip for a clean guaranteed result, and still attempt
+  the 5-angle version for the corroboration story.
+- The exact prediction keys/signatures can vary by upstream commit;
+  `reconstruct.py` handles the common variants but may need a small tweak to
+  match the version you `pip install -e`.
+
+## Live endpoint (Phase 3, optional)
+
+The same `core/` can be wrapped as a RunPod serverless worker (`handler.py`) that
+`services/api` calls on upload. Deferred — the offline GLB above is the demo.
+
+See `PLAN.md` for the full plan.
