@@ -37,6 +37,8 @@ def extract_frames(
     max_frames: int = 60,
     min_sharpness: float = 0.0,
     clips: list[str] | None = None,
+    start: float | None = None,
+    end: float | None = None,
 ) -> list[FrameSpec]:
     """Sample up to ``max_frames`` sharp frames across the chosen clips.
 
@@ -68,8 +70,18 @@ def extract_frames(
             cap.release()
             continue
 
+        # Optional [start, end] seconds trim -> restrict sampling to that window.
+        fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+        lo_f = int(start * fps) if start else 0
+        hi_f = int(end * fps) if end else total
+        lo_f = max(0, min(lo_f, total - 1))
+        hi_f = max(lo_f + 1, min(hi_f, total))
+        if start or end:
+            print(f"  {clip.name}: trim {start or 0:.1f}-{end or total / fps:.1f}s "
+                  f"-> frames {lo_f}-{hi_f} @ {fps:.1f}fps")
+
         # Evenly spaced sampling windows; keep the sharpest frame per window.
-        windows = np.linspace(0, total - 1, per_clip + 1).astype(int)
+        windows = np.linspace(lo_f, hi_f - 1, per_clip + 1).astype(int)
         for w in range(per_clip):
             lo, hi = windows[w], max(windows[w] + 1, windows[w + 1])
             best = None  # (sharpness, frame_index, image)

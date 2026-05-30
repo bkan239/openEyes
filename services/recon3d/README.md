@@ -66,13 +66,42 @@ python -m http.server 8080
 The GLB is frontend-agnostic — it can later be handed to the `angles/` or
 `apps/web` frontend (static asset or S3) without changing this service.
 
+The viewer has a **Cinematic** dropdown (orbit / witness-path) + speed slider —
+screen-record it for the pitch, or run it live.
+
+## Photorealistic novel views (Gaussian Splatting)
+
+For the "regenerate the scene from a new camera" wow, export a nerfstudio dataset
+and train Splatfacto, seeded with VGGT-Omega's poses + point cloud:
+
+```bash
+# 1) trim to a short, coherent, low-motion window and export the splat dataset:
+python run.py --clip data/clips/227a4b91-....mp4 --start 6 --end 16 \
+  --out hero --max-frames 60 --voxel 0.004 --nerfstudio \
+  --backend omega --checkpoint /workspace/checkpoints/vggt_omega_1b_512.pt
+
+# 2) train + render a novel-view fly-through (on the A40):
+pip install nerfstudio
+ns-train splatfacto --data hero/nerfstudio          # ~minutes; longer = sharper
+ns-render camera-path --load-config outputs/.../config.yml \
+  --camera-path-filename path.json --output-path hero/flythrough.mp4
+```
+
+`core/export_nerfstudio.py` writes `hero/nerfstudio/{transforms.json, images/,
+sparse_pc.ply}` (VGGT extrinsics inverted to camera-to-world + OpenCV→OpenGL axis
+flip; intrinsics match because we reuse the model's own frames). **No generative
+models** — the splat renders only observed geometry.
+
 ## Tuning / troubleshooting
 
-- **Sparse or noisy cloud** → raise `--max-frames`, lower `--conf-percentile`.
+- **Mushy / flat scene** → it's likely dynamics (moving people) + low texture, not
+  a bug. **Trim** (`--start/--end`) to a short, static-ish, laterally-moving window;
+  use ONE clip; raise `--max-frames`; try `--voxel 0.004` to fuse depth sheets.
+- **Sparse or noisy cloud** → lower `--conf-percentile`; raise `--max-frames`.
+- **Verify the pipeline** on a clean static scene: `--clip examples/forest_road.mp4`
+  (or `--images-dir <folder>`). If that's crisp, the pipeline is fine.
+- **Giant blocks in viewer** → point size is in pixels now; that's already fixed.
 - **Out of memory** → lower `--max-frames` or `--resolution`.
-- **Poor multi-angle result** (the 5 angles have limited overlap) → fall back to
-  frames from one moving clip for a clean guaranteed result, and still attempt
-  the 5-angle version for the corroboration story.
 - The exact prediction keys/signatures can vary by upstream commit;
   `reconstruct.py` handles the common variants but may need a small tweak to
   match the version you `pip install -e`.

@@ -195,6 +195,7 @@ def reconstruct(
     viz_dir: str | None = None,
     clean: bool = True,
     voxel: float | None = None,
+    nerfstudio_dir: str | None = None,
 ) -> Reconstruction:
     """Run inference and return a normalized, confidence-filtered point cloud."""
     import torch
@@ -250,6 +251,11 @@ def reconstruct(
         from .diagnostics import dump
         dump(viz_dir, rgb=rgb, depth=depth_map, conf=conf_map, extr=extr, intr=intr,
              points=pts, colors=cols, conf_percentile=conf_percentile)
+
+    if nerfstudio_dir:
+        from .export_nerfstudio import write as write_ns
+        write_ns(nerfstudio_dir, rgb=rgb, extrinsics=extr, intrinsics=intr,
+                 points=pts, colors=cols)
 
     print(f"[reconstruct] {len(pts):,} points, {len(extr)} cameras, image {H}x{W}")
     return Reconstruction(

@@ -28,6 +28,10 @@ def main() -> None:
                     help="folder of images to reconstruct directly (skips video frame "
                          "extraction). Use to VERIFY the pipeline on clean/static inputs, "
                          "e.g. the vggt-omega example images.")
+    ap.add_argument("--start", type=float, default=None,
+                    help="trim: start time in seconds (sample only from here)")
+    ap.add_argument("--end", type=float, default=None,
+                    help="trim: end time in seconds (sample only up to here)")
     ap.add_argument("--out", default="out", help="output folder")
     ap.add_argument("--backend", choices=["vggt", "omega"], default="omega")
     ap.add_argument("--checkpoint", default=None,
@@ -45,6 +49,9 @@ def main() -> None:
                     help="voxel-fuse the cloud; size as a fraction of the scene diagonal "
                          "(e.g. 0.004). Merges stacked per-frame depth sheets into one "
                          "crisp surface. Off by default.")
+    ap.add_argument("--nerfstudio", action="store_true",
+                    help="also export a nerfstudio dataset to <out>/nerfstudio for "
+                         "Gaussian Splatting (ns-train splatfacto --data <out>/nerfstudio)")
     args = ap.parse_args()
 
     out = Path(args.out)
@@ -61,7 +68,8 @@ def main() -> None:
         from core.frames import extract_frames
 
         specs = extract_frames(args.clips_dir, out / "frames",
-                               max_frames=args.max_frames, clips=args.clip)
+                               max_frames=args.max_frames, clips=args.clip,
+                               start=args.start, end=args.end)
         image_paths = [s.path for s in specs]
     if not image_paths:
         raise SystemExit("No frames found — check --clips-dir / --clip / --images-dir.")
@@ -78,6 +86,7 @@ def main() -> None:
         viz_dir=None if args.no_viz else str(out / "viz"),
         clean=not args.no_clean,
         voxel=args.voxel,
+        nerfstudio_dir=str(out / "nerfstudio") if args.nerfstudio else None,
     )
 
     # 3) predictions -> GLB

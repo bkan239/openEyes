@@ -31,6 +31,13 @@
     <p>drag to orbit · scroll to zoom · right-drag to pan</p>
     <div class="row"><label>Point size (px)</label><input id="size" type="range" min="0.5" max="10" step="0.5" value="2"></div>
     <div class="row"><label>Show cameras</label><input id="cams" type="checkbox"></div>
+    <div class="row"><label>Cinematic</label>
+      <select id="cine">
+        <option value="off">off</option>
+        <option value="orbit">orbit</option>
+        <option value="path">witness path</option>
+      </select></div>
+    <div class="row"><label>Speed</label><input id="speed" type="range" min="0.1" max="2" step="0.1" value="0.5"></div>
     <div class="row"><button id="bg">Toggle background</button><button id="fit">Recenter</button></div>
     <input id="file" type="file" accept=".glb,.gltf" />
     <div id="status">loading…</div>
@@ -68,6 +75,12 @@
     const cameraNodes = [];    // frustum meshes, for the toggle
     let modelRoot = null;
 
+    // Scene bounds + recovered camera path, for the cinematic modes.
+    const sceneCenter = new THREE.Vector3();
+    let sceneRadius = 1;
+    let camCurve = null;       // CatmullRom through the recovered camera centers
+    let cineT = 0;             // cinematic clock
+
     function resize() {
       const w = innerWidth, h = innerHeight;
       renderer.setSize(w, h, false);
@@ -80,6 +93,7 @@
       const box = new THREE.Box3().setFromObject(modelRoot);
       const sphere = box.getBoundingSphere(new THREE.Sphere());
       const r = sphere.radius || 1;
+      sceneCenter.copy(sphere.center); sceneRadius = r;
       controls.target.copy(sphere.center);
       camera.position.copy(sphere.center).add(new THREE.Vector3(r * 1.6, r * 0.9, r * 1.6));
       camera.near = r / 100; camera.far = r * 100; camera.updateProjectionMatrix();
@@ -111,6 +125,16 @@
         for (const c of cameraNodes) c.visible = camsEl.checked;   // honor toggle on load
         scene.add(modelRoot);
         frame();
+
+        // Build a smooth path through the recovered camera centers (witness path).
+        modelRoot.updateMatrixWorld(true);
+        const named = cameraNodes
+          .map((c) => ({ name: c.name || "", p: c.getWorldPosition(new THREE.Vector3()) }))
+          .sort((a, b) => a.name.localeCompare(b.name));   // cam_00, cam_01, ... = temporal
+        camCurve = named.length > 1
+          ? new THREE.CatmullRomCurve3(named.map((n) => n.p), false, "catmullrom", 0.5)
+          : null;
+
         status.textContent = `${nPoints.toLocaleString()} points · ${cameraNodes.length} cameras`;
         if (asObjectURL) URL.revokeObjectURL(url);
       }, undefined, (e) => { status.textContent = "could not load " + url; console.error(e); });
@@ -118,9 +142,16 @@
 
     const sizeEl = document.getElementById("size");
     const camsEl = document.getElementById("cams");
+    const cineEl = document.getElementById("cine");
+    const speedEl = document.getElementById("speed");
     sizeEl.addEventListener("input", () => applySize(parseFloat(sizeEl.value)));
     camsEl.addEventListener("change", (e) => {
       for (const c of cameraNodes) c.visible = e.target.checked;
+    });
+    cineEl.addEventListener("change", () => {
+      cineT = 0;
+      controls.enabled = cineEl.value === "off";   // hand control to the animation
+      if (cineEl.value === "off") frame();
     });
     document.getElementById("bg").addEventListener("click", () => {
       bg = (bg + 1) % bgs.length; scene.background = new THREE.Color(bgs[bg]);
@@ -130,7 +161,34 @@
       const f = e.target.files[0]; if (f) load(URL.createObjectURL(f), true);
     });
 
-    (function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); })();
+    // ---- cinematic camera animation ----
+    function cinematic(dt) {
+      const mode = cineEl.value;
+      if (mode === "off" || !modelRoot) return;
+      const speed = parseFloat(speedEl.value);
+      cineT += dt * speed;
+      if (mode === "orbit") {
+        const r = sceneRadius * 2.2, el = sceneRadius * 0.9;
+        camera.position.set(
+          sceneCenter.x + r * Math.cos(cineT * 0.4),
+          sceneCenter.y + el,
+          sceneCenter.z + r * Math.sin(cineT * 0.4));
+        camera.lookAt(sceneCenter);
+      } else if (mode === "path" && camCurve) {
+        const u = (cineT * 0.08) % 1;                 // loop along the witness path
+        camera.position.copy(camCurve.getPoint(u));
+        camera.lookAt(sceneCenter);                   // always frame the scene
+      }
+    }
+
+    let last = performance.now();
+    (function loop(now) {
+      requestAnimationFrame(loop);
+      const dt = Math.min(0.05, (now - last) / 1000); last = now;
+      cinematic(dt);
+      if (controls.enabled) controls.update();
+      renderer.render(scene, camera);
+    })(last);
     load(SRC, false);
   </script>
 </body>
