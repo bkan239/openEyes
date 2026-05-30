@@ -49,6 +49,22 @@ def _convert_heic(image_dir: Path) -> None:
     print(f"[anysplat] converted {n} HEIC -> JPG")
 
 
+def fetch_and_unzip(url: str, dest_dir) -> Path:
+    """Download a .zip from a plain URL and extract it into dest_dir. Returns dest_dir."""
+    import urllib.request
+    import zipfile
+
+    dest_dir = Path(dest_dir)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    zip_path = dest_dir / "captures.zip"
+    print(f"[anysplat] downloading {url}")
+    urllib.request.urlretrieve(url, zip_path)
+    print(f"[anysplat] unzipping -> {dest_dir}")
+    with zipfile.ZipFile(zip_path) as z:
+        z.extractall(dest_dir)
+    return dest_dir
+
+
 def _list_images(image_dir: Path) -> list[str]:
     """All images under image_dir, recursively (handles nested zip layouts)."""
     paths: set[str] = set()

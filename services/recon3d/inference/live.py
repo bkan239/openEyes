@@ -17,8 +17,6 @@ from __future__ import annotations
 
 import argparse
 import shutil
-import urllib.request
-import zipfile
 from pathlib import Path
 
 import anysplat_recon as ar
@@ -36,15 +34,7 @@ def main() -> None:
 
     out = Path(args.out)
     inputs = out / "inputs"
-    inputs.mkdir(parents=True, exist_ok=True)
-
-    zip_path = out / "captures.zip"
-    print(f"[live] downloading {args.url}")
-    urllib.request.urlretrieve(args.url, zip_path)
-
-    print(f"[live] unzipping -> {inputs}")
-    with zipfile.ZipFile(zip_path) as z:
-        z.extractall(inputs)
+    ar.fetch_and_unzip(args.url, inputs)
 
     model = ar.load_model()
     hero = ar.reconstruct_hero(model, inputs, out, t=args.t, height=args.height)

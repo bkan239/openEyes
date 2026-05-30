@@ -83,31 +83,42 @@ PAGE = """<!doctype html><html lang="en"><head>
 <div class="wrap">
   <label>📷 Choose / take photos<input id="f" type="file" accept="image/*" multiple capture="environment"></label>
   <button id="go" disabled>Reconstruct</button>
+  <p>— or pull the captures from the app —</p>
+  <input id="url" type="url" placeholder="captures zip URL"
+    style="width:100%;padding:12px;border-radius:10px;border:1px solid #2c3548;background:#11151c;color:#e6e9ef">
+  <button id="goUrl">Reconstruct from app captures</button>
   <div id="status"></div>
   <div id="results" class="wrap"></div>
 </div>
 <script>
- const f=document.getElementById('f'),go=document.getElementById('go'),
-       st=document.getElementById('status'),res=document.getElementById('results');
+ const f=document.getElementById('f'),go=document.getElementById('go'),url=document.getElementById('url'),
+       goUrl=document.getElementById('goUrl'),st=document.getElementById('status'),res=document.getElementById('results');
+ function showVideos(j){
+   const vids=j.videos||(j.video?[j.video]:[]);
+   if(!vids.length){ st.textContent='Failed: '+(j.error||'no video produced'); return; }
+   st.textContent='Done in '+j.seconds+'s'+(vids.length>1?(' — '+vids.length+' trajectories'):'')+'.';
+   res.innerHTML='';
+   for(const u of vids){
+     const lab=document.createElement('p'); lab.textContent='▶ '+u.split('/').pop().replace('.mp4','');
+     const v=document.createElement('video'); v.src=u+'?t='+Date.now();
+     v.controls=v.autoplay=v.loop=v.muted=v.playsInline=true;
+     res.appendChild(lab); res.appendChild(v);
+   }
+ }
  f.onchange=()=>{go.disabled=!f.files.length; st.textContent=f.files.length+' photo(s) selected';};
  go.onclick=async()=>{
    go.disabled=true; res.innerHTML=''; st.textContent='Uploading + reconstructing… (a few seconds)';
    const fd=new FormData(); for(const file of f.files) fd.append('images',file);
-   try{
-     const r=await fetch('/reconstruct',{method:'POST',body:fd});
-     const j=await r.json();
-     const vids=j.videos||(j.video?[j.video]:[]);
-     if(vids.length){
-       st.textContent='Done in '+j.seconds+'s — '+vids.length+' trajectories.';
-       for(const u of vids){
-         const lab=document.createElement('p'); lab.textContent='▶ '+u.split('/').pop().replace('.mp4','');
-         const v=document.createElement('video'); v.src=u+'?t='+Date.now();
-         v.controls=v.autoplay=v.loop=v.muted=v.playsInline=true;
-         res.appendChild(lab); res.appendChild(v);
-       }
-     } else st.textContent='Failed: '+(j.error||'no video produced');
-   }catch(e){ st.textContent='Error: '+e; }
+   try{ showVideos(await (await fetch('/reconstruct',{method:'POST',body:fd})).json()); }
+   catch(e){ st.textContent='Error: '+e; }
    go.disabled=false;
+ };
+ goUrl.onclick=async()=>{
+   if(!url.value){ st.textContent='paste a captures zip URL'; return; }
+   goUrl.disabled=true; res.innerHTML=''; st.textContent='Fetching + reconstructing… (a few seconds)';
+   try{ showVideos(await (await fetch('/from_url?url='+encodeURIComponent(url.value))).json()); }
+   catch(e){ st.textContent='Error: '+e; }
+   goUrl.disabled=false;
  };
 </script></body></html>"""
 
@@ -157,3 +168,35 @@ async def reconstruct(images: list[UploadFile] = File(...)):
     secs = round(time.time() - t, 1)
     log(f"✅ done {stamp} in {secs}s -> {len(urls)} videos {[v.name for v in videos]}")
     return JSONResponse({"videos": urls, "seconds": secs})
+
+
+@app.get("/from_url")
+def from_url(url: str):
+    """WARM live path: fetch the app's captures zip, reconstruct ONE hero fly-through.
+    Model stays resident, so this is seconds (no reload). Trigger from the page or:
+        curl 'http://<host>:8008/from_url?url=<zip-url>'
+    """
+    stamp = time.strftime("%Y%m%d_%H%M%S")
+    inputs = OUT / stamp / "inputs"
+    log(f"/from_url: fetching {url} -> {stamp}")
+    try:
+        ar.fetch_and_unzip(url, inputs)
+    except Exception as e:
+        log(f"✗ fetch failed: {e}")
+        return JSONResponse({"error": f"fetch failed: {e}"}, status_code=400)
+
+    t = time.time()
+    try:
+        model = get_model()
+        with _infer_lock:
+            log(f"hero reconstruct {stamp} ...")
+            hero = ar.reconstruct_hero(model, inputs, OUT / stamp)
+    except Exception as e:
+        log(f"✗ reconstruction failed: {e}\n{traceback.format_exc()}")
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+    shutil.copy(hero, OUT / "latest.mp4")
+    secs = round(time.time() - t, 1)
+    out_url = f"/outputs/{stamp}/{hero.name}"
+    log(f"✅ hero {stamp} in {secs}s -> {out_url}")
+    return JSONResponse({"video": out_url, "seconds": secs})
