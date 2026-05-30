@@ -141,6 +141,33 @@ def _unproject(depth: np.ndarray, extr: np.ndarray, intr: np.ndarray):
     return world.reshape(S, H, W, 3)
 
 
+def _clean_points(pts, cols, crop_pct: float = 1.0, knn: int = 16, std_ratio: float = 2.0):
+    """Drop floating outliers: a gentle percentile bbox crop, then statistical
+    (k-NN) outlier removal — the speckle that makes the cloud look noisy."""
+    n0 = len(pts)
+
+    # 1) crop the far stragglers that also inflate the scene scale.
+    lo, hi = np.percentile(pts, [crop_pct, 100 - crop_pct], axis=0)
+    inside = np.all((pts >= lo) & (pts <= hi), axis=1)
+    pts, cols = pts[inside], cols[inside]
+
+    # 2) statistical outlier removal (needs scipy; skip gracefully if absent).
+    try:
+        from scipy.spatial import cKDTree
+
+        tree = cKDTree(pts)
+        d, _ = tree.query(pts, k=min(knn, len(pts)))
+        mean_d = d[:, 1:].mean(axis=1)                      # exclude self (dist 0)
+        thresh = mean_d.mean() + std_ratio * mean_d.std()
+        keep = mean_d <= thresh
+        pts, cols = pts[keep], cols[keep]
+    except Exception as e:  # pragma: no cover
+        print(f"[reconstruct] outlier removal skipped ({e})")
+
+    print(f"[reconstruct] cleaned {n0:,} -> {len(pts):,} points")
+    return pts, cols
+
+
 # --------------------------------------------------------------------------- #
 # main
 # --------------------------------------------------------------------------- #
@@ -152,6 +179,7 @@ def reconstruct(
     conf_percentile: float = 50.0,
     device: str | None = None,
     viz_dir: str | None = None,
+    clean: bool = True,
 ) -> Reconstruction:
     """Run inference and return a normalized, confidence-filtered point cloud."""
     import torch
@@ -195,6 +223,9 @@ def reconstruct(
     if conf_map is not None:
         keep &= conf_map.reshape(-1) >= np.percentile(conf_map, conf_percentile)
     pts, cols = pts[keep], cols[keep]
+
+    if clean and len(pts) > 100:
+        pts, cols = _clean_points(pts, cols)
 
     if viz_dir:
         from .diagnostics import dump

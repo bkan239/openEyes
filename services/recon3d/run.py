@@ -35,6 +35,8 @@ def main() -> None:
     ap.add_argument("--no-cameras", action="store_true", help="omit camera frustums in GLB")
     ap.add_argument("--no-viz", action="store_true",
                     help="skip the diagnostic visualizations in out/viz/")
+    ap.add_argument("--no-clean", action="store_true",
+                    help="skip outlier removal (keep raw point cloud)")
     args = ap.parse_args()
 
     out = Path(args.out)
@@ -60,6 +62,7 @@ def main() -> None:
         resolution=args.resolution,
         conf_percentile=args.conf_percentile,
         viz_dir=None if args.no_viz else str(out / "viz"),
+        clean=not args.no_clean,
     )
 
     # 3) predictions -> GLB

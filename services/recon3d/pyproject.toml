@@ -12,6 +12,7 @@ dependencies = [
     "opencv-python-headless",
     "trimesh",
     "matplotlib",
+    "scipy",
     "huggingface-hub",
     "tqdm",
 ]

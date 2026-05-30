@@ -61,9 +61,10 @@ def to_glb(recon: Reconstruction, out_path: str | Path, add_cameras: bool = True
     scene.add_geometry(cloud, geom_name="points")
 
     if add_cameras and recon.extrinsics is not None:
-        # Size the camera markers relative to the scene so they never dominate it.
-        diag = float(np.linalg.norm(pts.max(0) - pts.min(0))) if len(pts) else 1.0
-        cam_scale = 0.015 * diag
+        # Size markers from the camera-path extent (robust — point outliers can
+        # inflate the cloud bbox), and keep them small.
+        centers = np.array([_camera_to_world(np.asarray(e))[:3, 3] for e in recon.extrinsics])
+        cam_scale = 0.02 * float(np.linalg.norm(centers.max(0) - centers.min(0)) or 1.0)
         cam_color = np.array([255, 80, 80, 255], dtype=np.uint8)
         for i, extr in enumerate(recon.extrinsics):
             c2w = _camera_to_world(np.asarray(extr))
