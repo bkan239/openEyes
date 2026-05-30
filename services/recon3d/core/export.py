@@ -61,10 +61,13 @@ def to_glb(recon: Reconstruction, out_path: str | Path, add_cameras: bool = True
     scene.add_geometry(cloud, geom_name="points")
 
     if add_cameras and recon.extrinsics is not None:
+        # Size the camera markers relative to the scene so they never dominate it.
+        diag = float(np.linalg.norm(pts.max(0) - pts.min(0))) if len(pts) else 1.0
+        cam_scale = 0.015 * diag
         cam_color = np.array([255, 80, 80, 255], dtype=np.uint8)
         for i, extr in enumerate(recon.extrinsics):
             c2w = _camera_to_world(np.asarray(extr))
-            fr = _frustum()
+            fr = _frustum(scale=cam_scale)
             fr.apply_transform(c2w)
             fr.visual.vertex_colors = np.tile(cam_color, (len(fr.vertices), 1))
             scene.add_geometry(fr, geom_name=f"cam_{i:02d}")
