@@ -636,10 +636,41 @@ input.ghost::placeholder { color: var(--text-faint); }
 }
 .ev-panel-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
+  gap: 10px;
   padding: 18px 18px 15px;
   border-bottom: 1px solid var(--hairline);
+}
+.ev-panel.collapsed .ev-panel-head {
+  border-bottom: none;
+  padding-bottom: 18px;
+}
+.ev-panel-head-toggle {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ev-panel-head-toggle:hover .ev-panel-title { color: var(--ink-dim); }
+.ev-panel-head-toggle > span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.ev-panel-head-toggle svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--muted);
 }
 .ev-panel-kicker {
   font-size: 11px;

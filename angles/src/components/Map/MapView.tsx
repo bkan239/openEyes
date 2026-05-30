@@ -6,7 +6,7 @@ import type { MediaMapItem, UserMedia } from "@/lib/types";
 import { darkStyleURL } from "./mapStyle";
 import { palette } from "@/styles/tokens";
 import { poseAt, type Pose } from "@/lib/pose";
-import { isMockExcludedMediaId, mapPinThumbnailUrl, PRETTI_CENTER } from "@/lib/demo";
+import { isMockExcludedMediaId, mapPinThumbnailUrl } from "@/lib/demo";
 import { cameraAccentColor } from "@/lib/cameraColors";
 import { clipDurationMs } from "@/lib/livePlayback";
 
@@ -243,22 +243,6 @@ const PHOTO_GLYPH_SVG = `<svg class="veriloc-annotation__glyph" viewBox="0 0 40 
   <path d="M8 24 L14 16 L20 20 L24 15 L32 24 Z" fill="rgba(255,255,255,0.35)"/>
   <path d="M8 24h24v2H8z" fill="rgba(255,255,255,0.12)"/>
 </svg>`;
-
-/** Cream focus dot + pulsing ring + "A. PRETTI" label, anchored on the incident. */
-function buildVictimMarkerElement(): HTMLDivElement {
-  const el = document.createElement("div");
-  el.className = "ev-victim";
-  el.setAttribute("aria-hidden", "true");
-  const ring = document.createElement("div");
-  ring.className = "ev-victim-ring";
-  const dot = document.createElement("div");
-  dot.className = "ev-victim-dot";
-  const label = document.createElement("span");
-  label.className = "ev-victim-label";
-  label.textContent = "A. PRETTI";
-  el.append(ring, dot, label);
-  return el;
-}
 
 function clearAnnotationMarkers(markersRef: MutableRefObject<maplibregl.Marker[]>): void {
   for (const m of markersRef.current) m.remove();
@@ -630,8 +614,6 @@ export function MapView() {
   const layerEventsRef = useRef<MapLayerEvents | undefined>(undefined);
   const styleInstallGenRef = useRef(0);
   const liveCamCircleHandlerRef = useRef<((e: maplibregl.MapLayerMouseEvent) => void) | undefined>(undefined);
-  const victimMarkerRef = useRef<maplibregl.Marker | null>(null);
-
   const mediaItems = useApp((s) => s.mediaItems);
   const prettiOverlayItems = useApp((s) => s.prettiOverlayItems);
   const flyTarget = useApp((s) => s.flyTarget);
@@ -1047,20 +1029,6 @@ export function MapView() {
       mapRef.current = null;
     };
   }, [setSelectedCameras, setViewport]);
-
-  // Incident / victim focus marker — only in the showcase reconstruction.
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || uiMode !== "showcase") return;
-    const marker = new maplibregl.Marker({ element: buildVictimMarkerElement(), anchor: "center" })
-      .setLngLat(PRETTI_CENTER)
-      .addTo(map);
-    victimMarkerRef.current = marker;
-    return () => {
-      marker.remove();
-      victimMarkerRef.current = null;
-    };
-  }, [uiMode]);
 
   // push Pretti overlay into map source
   useEffect(() => {

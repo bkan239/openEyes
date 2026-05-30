@@ -1,5 +1,23 @@
+import { useState } from "react";
 import { useApp } from "@/state/store";
 import type { LivePerspective } from "@/state/useLivePerspectives";
+
+function ChevronIcon({ down }: { down: boolean }) {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      aria-hidden
+      style={{ transform: down ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 160ms ease" }}
+    >
+      <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 function EyeIcon({ off }: { off: boolean }) {
   if (off)
@@ -82,26 +100,36 @@ export function AnglesPanel({
   total: number;
   liveCount: number;
 }) {
+  const [collapsed, setCollapsed] = useState(true);
   const hidden = useApp((s) => s.showcaseFloatingVideosHidden);
   const toggleHidden = useApp((s) => s.toggleShowcaseFloatingVideosHidden);
 
   return (
     <div
-      className="ev-panel"
+      className={`ev-panel${collapsed ? " collapsed" : ""}`}
       style={{
         position: "absolute",
         top: 92,
         right: 24,
         width: 374,
-        maxHeight: "calc(100vh - 92px - 150px)",
+        maxHeight: collapsed ? undefined : "calc(100vh - 92px - 150px)",
         zIndex: 95
       }}
     >
       <div className="ev-panel-head">
-        <div>
-          <div className="ev-panel-kicker">All angles</div>
-          <div className="ev-panel-title">{total} perspectives</div>
-        </div>
+        <button
+          type="button"
+          className="ev-panel-head-toggle"
+          onClick={() => setCollapsed((c) => !c)}
+          aria-expanded={!collapsed}
+          aria-label={collapsed ? "Expand all angles panel" : "Collapse all angles panel"}
+        >
+          <ChevronIcon down={!collapsed} />
+          <span>
+            <span className="ev-panel-kicker">All angles</span>
+            <span className="ev-panel-title">{total} perspectives</span>
+          </span>
+        </button>
         <button
           type="button"
           className={`ev-iconbtn${hidden ? "" : " active"}`}
@@ -112,15 +140,19 @@ export function AnglesPanel({
           <EyeIcon off={hidden} />
         </button>
       </div>
-      <div className="ev-panel-list">
-        {perspectives.map((p) => (
-          <PerspectiveCard key={p.id} p={p} />
-        ))}
-      </div>
-      <div className="ev-panel-foot">
-        <span>Synced to timeline</span>
-        <span className="live">{liveCount} live</span>
-      </div>
+      {!collapsed && (
+        <>
+          <div className="ev-panel-list">
+            {perspectives.map((p) => (
+              <PerspectiveCard key={p.id} p={p} />
+            ))}
+          </div>
+          <div className="ev-panel-foot">
+            <span>Synced to timeline</span>
+            <span className="live">{liveCount} live</span>
+          </div>
+        </>
+      )}
     </div>
   );
 }
