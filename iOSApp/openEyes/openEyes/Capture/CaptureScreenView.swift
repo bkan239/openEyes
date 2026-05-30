@@ -8,29 +8,42 @@ struct CaptureScreenView: View {
     @State private var captureFlashOpacity: Double = 0
 
     var body: some View {
-        ZStack {
-            CaptureCameraPanel(
-                camera: camera,
-                onOpenUploads: {
-                    if let draft = draftStore.drafts.first(where: { !$0.isUploaded }) {
-                        pendingUploadDraft = draft
-                    } else if let latest = draftStore.drafts.first {
-                        pendingUploadDraft = latest
+        GeometryReader { geometry in
+            let topInset = geometry.safeAreaInsets.top
+            ZStack(alignment: .bottom) {
+                CaptureCameraPanel(
+                    camera: camera,
+                    lastCapture: draftStore.drafts.first,
+                    previewHeight: geometry.size.height,
+                    topInset: topInset,
+                    onOpenDraft: { draftID in
+                        if let id = draftID,
+                           let draft = draftStore.drafts.first(where: { $0.id == id }) {
+                            pendingUploadDraft = draft
+                        } else if let latest = draftStore.drafts.first {
+                            pendingUploadDraft = latest
+                        }
                     }
-                }
-            )
+                )
+                .frame(width: geometry.size.width, height: geometry.size.height)
 
-            Color.white.opacity(captureFlashOpacity).ignoresSafeArea().allowsHitTesting(false)
+                Color.white
+                    .opacity(captureFlashOpacity)
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Ink.ink.ignoresSafeArea())
         }
-        .background(Ink.ink.ignoresSafeArea())
+        .background(Ink.ink)
         .task { camera.activate() }
         .onDisappear { camera.deactivate() }
         .onReceive(camera.$pendingDraft.compactMap { $0 }) { draft in
             draftStore.upsert(draft)
             camera.pendingDraft = nil
             pendingUploadDraft = draft
-            let peak = draft.mediaMode == .video ? 0.18 : 0.42
-            withAnimation(.easeOut(duration: 0.06)) { captureFlashOpacity = peak }
+            let peakOpacity = draft.mediaMode == .video ? 0.18 : 0.42
+            withAnimation(.easeOut(duration: 0.06)) { captureFlashOpacity = peakOpacity }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) {
                 withAnimation(.easeOut(duration: 0.22)) { captureFlashOpacity = 0 }
             }
@@ -41,140 +54,327 @@ struct CaptureScreenView: View {
                 pendingUploadDraft = nil
             }
         }
+        .preferredColorScheme(.dark)
     }
 }
 
 struct CaptureCameraPanel: View {
     @ObservedObject var camera: CaptureCameraController
-    let onOpenUploads: () -> Void
+    let lastCapture: CaptureUploadDraft?
+    let previewHeight: CGFloat
+    let topInset: CGFloat
+    let onOpenDraft: (UUID?) -> Void
+
+    @State private var deviceOrientation: UIDeviceOrientation = UIDevice.current.orientation
     @State private var isPressingShutter = false
+    @State private var didBeginHoldRecording = false
+    @State private var isRecordingLocked = false
+    @State private var gestureStartedWhileLocked = false
+    @State private var holdStartWorkItem: DispatchWorkItem?
+    @State private var pinchStartZoom: CGFloat?
 
     var body: some View {
         ZStack {
-            if camera.isCameraAuthorized && camera.isSessionConfigured {
-                CapturePreviewView(session: camera.session) { scale, state in
-                    if state == .began {
-                        camera.setZoomFactor(camera.currentZoomFactor * scale)
-                    }
-                }
-                .ignoresSafeArea()
-            } else {
-                VStack(spacing: 16) {
-                    Image(systemName: "camera.fill")
-                        .font(.system(size: 44))
-                        .foregroundStyle(Ink.primaryOnInk)
-                    Text(camera.permissionMessage)
-                        .font(InkFont.body(15))
-                        .foregroundStyle(Ink.onInkMuted)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 32)
-                    if !camera.isCameraAuthorized {
-                        Button("Enable Camera") { camera.requestPermissions() }
-                            .font(InkFont.headline(14))
-                            .foregroundStyle(Ink.ink)
-                            .padding(.horizontal, 18)
-                            .padding(.vertical, 10)
-                            .background(Ink.primaryOnInk)
-                            .clipShape(Capsule())
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Ink.ink)
-            }
+            previewSurface
 
             LinearGradient(
-                colors: [Ink.ink.opacity(0.72), .clear, Ink.ink.opacity(0.82)],
+                colors: [
+                    Ink.ink.opacity(0.46),
+                    .clear,
+                    .clear,
+                    Ink.ink.opacity(0.22),
+                    Ink.ink.opacity(0.62),
+                ],
                 startPoint: .top,
                 endPoint: .bottom
             )
             .allowsHitTesting(false)
-            .ignoresSafeArea()
+        }
+        .overlay(alignment: .bottom) {
+            bottomOverlay
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Ink.ink)
+        .onChange(of: camera.isRecording) { _, isRecording in
+            if !isRecording { isRecordingLocked = false }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification)) { _ in
+            let nextOrientation = UIDevice.current.orientation
+            guard nextOrientation.isValidInterfaceOrientation else { return }
+            deviceOrientation = nextOrientation
+        }
+    }
 
-            VStack(spacing: 0) {
-                HStack {
-                    Text("Capture")
-                        .font(InkFont.headline(18))
-                        .foregroundStyle(Ink.onInk)
-                    Spacer()
-                    Button(action: onOpenUploads) {
-                        Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 26))
-                            .foregroundStyle(Ink.primaryOnInk)
+    private var previewSurface: some View {
+        Group {
+            if camera.isCameraAuthorized && camera.isSessionConfigured {
+                CapturePreviewView(session: camera.session) { scale, state in
+                    switch state {
+                    case .began:
+                        pinchStartZoom = camera.currentZoomFactor
+                    case .changed:
+                        let baseZoom = pinchStartZoom ?? camera.currentZoomFactor
+                        camera.setZoomFactor(baseZoom * scale)
+                    default:
+                        pinchStartZoom = nil
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 8)
-                .padding(.bottom, 12)
-                .background(Ink.ink.opacity(0.55))
+            } else {
+                ZStack {
+                    LinearGradient(
+                        colors: [Ink.onInk.opacity(0.08), Ink.onInk.opacity(0.03)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+
+                    VStack(spacing: 12) {
+                        if camera.isCameraAuthorized {
+                            ProgressView()
+                                .scaleEffect(1.4)
+                                .tint(Ink.primaryOnInk)
+                        } else {
+                            Image(systemName: "camera.fill")
+                                .font(.system(size: UIScreen.main.bounds.width / 6))
+                                .foregroundStyle(Ink.onInk.opacity(0.82))
+                        }
+                        Text(camera.permissionMessage)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(Ink.onInk)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 28)
+                        if !camera.isCameraAuthorized {
+                            Button("Enable Camera") { camera.requestPermissions() }
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(Ink.ink)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 10)
+                                .background(Capsule().fill(Ink.primaryOnInk))
+                        }
+                    }
+                }
+            }
+        }
+        .frame(height: previewHeight + topInset + 36)
+        .scaleEffect(1.04)
+        .offset(y: -topInset + 12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .clipped()
+    }
+
+    private var bottomOverlay: some View {
+        VStack(spacing: 16) {
+            HStack {
+                Spacer()
+                HStack(spacing: 8) {
+                    ForEach(camera.availableLenses) { lens in
+                        lensChip(
+                            title: lens.label,
+                            isSelected: camera.selectedLens.id == lens.id
+                        ) {
+                            camera.selectLens(lens)
+                        }
+                    }
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+
+            if isRecordingLocked {
+                Text("Locked")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Ink.onInk)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Capsule().fill(Ink.ink.opacity(0.34)))
+            }
+
+            if camera.isRecording && !isRecordingLocked {
+                Text(camera.recordingDurationLabel)
+                    .font(.system(size: 13, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(Ink.onInk)
+            }
+
+            HStack {
+                lastCaptureButton
+                    .frame(width: 72, alignment: .leading)
 
                 Spacer()
 
-                if camera.isRecording {
-                    Text(camera.recordingDurationLabel)
-                        .font(InkFont.headline(16))
-                        .foregroundStyle(Ink.onInk)
-                        .padding(.bottom, 8)
-                }
+                ZStack {
+                    Circle()
+                        .fill(didBeginHoldRecording || camera.isRecording ? Color.red : Ink.onInk)
+                        .frame(width: 78, height: 78)
 
-                HStack(spacing: 8) {
-                    ForEach(camera.availableLenses) { lens in
-                        Button { camera.selectLens(lens) } label: {
-                            Text(lens.label)
-                                .font(InkFont.caption(13))
-                                .foregroundStyle(camera.selectedLens.id == lens.id ? Ink.ink : Ink.onInk)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 8)
-                                .background(camera.selectedLens.id == lens.id ? Ink.primaryOnInk : Ink.inkSurface.opacity(0.7))
-                                .clipShape(Capsule())
+                    Circle()
+                        .stroke(Ink.onInk.opacity(0.3), lineWidth: 2)
+                        .frame(width: 92, height: 92)
+
+                    if didBeginHoldRecording || camera.isRecording {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Ink.onInk)
+                            .frame(width: 26, height: 26)
+                    } else {
+                        Circle()
+                            .stroke(Ink.ink.opacity(0.12), lineWidth: 1)
+                            .frame(width: 62, height: 62)
+                    }
+                }
+                .scaleEffect(isPressingShutter || camera.isRecording ? 0.94 : 1)
+                .animation(.easeOut(duration: 0.14), value: isPressingShutter)
+                .contentShape(Circle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { value in
+                            handleShutterPressChanged(translationWidth: value.translation.width)
                         }
-                        .buttonStyle(.plain)
-                    }
+                        .onEnded { _ in
+                            handleShutterPressEnded()
+                        }
+                )
+                .disabled(!camera.isCameraAuthorized)
+
+                Spacer()
+
+                Button { camera.flipCamera() } label: {
+                    controlCircle(systemName: "arrow.triangle.2.circlepath.camera")
                 }
-                .padding(.bottom, 12)
-
-                HStack(spacing: 36) {
-                    Button { camera.flipCamera() } label: {
-                        Image(systemName: "arrow.triangle.2.circlepath.camera")
-                            .font(.system(size: 24))
-                            .foregroundStyle(Ink.onInk)
-                    }
-
-                    ZStack {
-                        Circle()
-                            .stroke(Ink.onInk, lineWidth: 4)
-                            .frame(width: 78, height: 78)
-                        Circle()
-                            .fill(camera.isRecording ? Color.red : Ink.onInk)
-                            .frame(width: camera.isRecording ? 34 : 62, height: camera.isRecording ? 34 : 62)
-                    }
-                    .gesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { _ in
-                                if !isPressingShutter {
-                                    isPressingShutter = true
-                                    camera.beginVideoCapture()
-                                }
-                            }
-                            .onEnded { _ in
-                                isPressingShutter = false
-                                if camera.isRecording {
-                                    camera.endVideoCapture()
-                                } else {
-                                    camera.capturePhotoTap()
-                                }
-                            }
-                    )
-
-                    Button {
-                        camera.capturePhotoTap()
-                    } label: {
-                        Image(systemName: "photo")
-                            .font(.system(size: 24))
-                            .foregroundStyle(Ink.onInk)
-                    }
-                }
-                .padding(.bottom, 20)
+                .disabled(!camera.isCameraAuthorized)
+                .frame(width: 72, alignment: .trailing)
             }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 20)
+        }
+    }
+
+    private func handleShutterPressChanged(translationWidth: CGFloat) {
+        guard camera.isCameraAuthorized else { return }
+
+        if isRecordingLocked {
+            if !didBeginHoldRecording { gestureStartedWhileLocked = true }
+            isPressingShutter = true
+            return
+        }
+
+        if didBeginHoldRecording && !isRecordingLocked && translationWidth < -70 {
+            isRecordingLocked = true
+            gestureStartedWhileLocked = false
+            isPressingShutter = false
+            return
+        }
+
+        guard !isPressingShutter else { return }
+
+        isPressingShutter = true
+        didBeginHoldRecording = false
+
+        let workItem = DispatchWorkItem {
+            guard isPressingShutter else { return }
+            didBeginHoldRecording = true
+            camera.beginVideoCapture()
+        }
+        holdStartWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18, execute: workItem)
+    }
+
+    private func handleShutterPressEnded() {
+        holdStartWorkItem?.cancel()
+        holdStartWorkItem = nil
+
+        if isRecordingLocked {
+            if gestureStartedWhileLocked && camera.isRecording {
+                camera.endVideoCapture()
+                isRecordingLocked = false
+            }
+            isPressingShutter = false
+            didBeginHoldRecording = false
+            gestureStartedWhileLocked = false
+            return
+        }
+
+        if didBeginHoldRecording {
+            camera.endVideoCapture()
+        } else {
+            camera.capturePhotoTap()
+        }
+
+        isPressingShutter = false
+        didBeginHoldRecording = false
+        gestureStartedWhileLocked = false
+    }
+
+    private func lensChip(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(isSelected ? Ink.ink : Ink.onInk)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(
+                    Capsule()
+                        .fill(isSelected ? Ink.primaryOnInk : Ink.ink.opacity(0.28))
+                        .overlay(
+                            Capsule()
+                                .stroke(Ink.onInk.opacity(isSelected ? 0 : 0.12), lineWidth: 1)
+                        )
+                )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func controlCircle(systemName: String) -> some View {
+        Image(systemName: systemName)
+            .font(.system(size: 20, weight: .semibold))
+            .foregroundStyle(Ink.onInk)
+            .frame(width: 46, height: 46)
+            .background(Circle().fill(Ink.onInk.opacity(0.08)))
+            .overlay(Circle().stroke(Ink.onInk.opacity(0.1), lineWidth: 1))
+            .rotationEffect(flipIconRotation)
+            .animation(.easeOut(duration: 0.18), value: deviceOrientation)
+    }
+
+    private var flipIconRotation: Angle {
+        switch deviceOrientation {
+        case .landscapeLeft: return .degrees(90)
+        case .landscapeRight: return .degrees(-90)
+        default: return .degrees(0)
+        }
+    }
+
+    private var lastCaptureButton: some View {
+        Button { onOpenDraft(lastCapture?.id) } label: {
+            ZStack {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Ink.ink.opacity(0.28))
+                    .frame(width: 52, height: 52)
+
+                if let image = lastCapture?.image ?? lastCapture?.previewImage {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 52, height: 52)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                } else {
+                    Image(systemName: "photo.on.rectangle")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundStyle(Ink.onInk.opacity(0.7))
+                }
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(Ink.onInk.opacity(0.14), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private extension UIDeviceOrientation {
+    var isValidInterfaceOrientation: Bool {
+        switch self {
+        case .portrait, .portraitUpsideDown, .landscapeLeft, .landscapeRight:
+            return true
+        default:
+            return false
         }
     }
 }
