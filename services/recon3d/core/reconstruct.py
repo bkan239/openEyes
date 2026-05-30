@@ -168,6 +168,20 @@ def _clean_points(pts, cols, crop_pct: float = 1.0, knn: int = 16, std_ratio: fl
     return pts, cols
 
 
+def _voxel_downsample(pts, cols, size: float):
+    """Merge points into a voxel grid (one averaged point per cell). Collapses the
+    redundant per-frame depth 'sheets' into a single crisp surface."""
+    n0 = len(pts)
+    keys = np.floor(pts / size).astype(np.int64)
+    _, inv = np.unique(keys, axis=0, return_inverse=True)
+    n = inv.max() + 1
+    counts = np.bincount(inv)[:, None]
+    psum = np.zeros((n, 3)); np.add.at(psum, inv, pts)
+    csum = np.zeros((n, 3)); np.add.at(csum, inv, cols.astype(np.float64))
+    print(f"[reconstruct] voxel-fused {n0:,} -> {n:,} points (voxel={size:.5f})")
+    return (psum / counts).astype(np.float32), (csum / counts).astype(np.uint8)
+
+
 # --------------------------------------------------------------------------- #
 # main
 # --------------------------------------------------------------------------- #
@@ -180,6 +194,7 @@ def reconstruct(
     device: str | None = None,
     viz_dir: str | None = None,
     clean: bool = True,
+    voxel: float | None = None,
 ) -> Reconstruction:
     """Run inference and return a normalized, confidence-filtered point cloud."""
     import torch
@@ -226,6 +241,10 @@ def reconstruct(
 
     if clean and len(pts) > 100:
         pts, cols = _clean_points(pts, cols)
+
+    if voxel and len(pts) > 100:
+        diag = float(np.linalg.norm(pts.max(0) - pts.min(0))) or 1.0
+        pts, cols = _voxel_downsample(pts, cols, voxel * diag)
 
     if viz_dir:
         from .diagnostics import dump

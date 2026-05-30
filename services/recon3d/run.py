@@ -24,6 +24,10 @@ def main() -> None:
     ap.add_argument("--clip", action="append", default=None,
                     help="specific clip path(s); repeatable. Use ONE clip for the most "
                          "reliable result (dense overlap). Overrides --clips-dir.")
+    ap.add_argument("--images-dir", default=None,
+                    help="folder of images to reconstruct directly (skips video frame "
+                         "extraction). Use to VERIFY the pipeline on clean/static inputs, "
+                         "e.g. the vggt-omega example images.")
     ap.add_argument("--out", default="out", help="output folder")
     ap.add_argument("--backend", choices=["vggt", "omega"], default="omega")
     ap.add_argument("--checkpoint", default=None,
@@ -37,20 +41,30 @@ def main() -> None:
                     help="skip the diagnostic visualizations in out/viz/")
     ap.add_argument("--no-clean", action="store_true",
                     help="skip outlier removal (keep raw point cloud)")
+    ap.add_argument("--voxel", type=float, default=None,
+                    help="voxel-fuse the cloud; size as a fraction of the scene diagonal "
+                         "(e.g. 0.004). Merges stacked per-frame depth sheets into one "
+                         "crisp surface. Off by default.")
     args = ap.parse_args()
 
     out = Path(args.out)
-    frames_dir = out / "frames"
-
-    # 1) clips -> frames (no torch needed)
-    from core.frames import extract_frames
 
     t0 = time.time()
-    specs = extract_frames(args.clips_dir, frames_dir, max_frames=args.max_frames,
-                           clips=args.clip)
-    image_paths = [s.path for s in specs]
+    if args.images_dir:
+        # Verification path: feed images straight in (no video frame extraction).
+        exts = ("*.jpg", "*.jpeg", "*.png", "*.JPG", "*.PNG")
+        image_paths = sorted(str(p) for e in exts for p in Path(args.images_dir).glob(e))
+        image_paths = image_paths[:args.max_frames]
+        print(f"[run] using {len(image_paths)} images from {args.images_dir}")
+    else:
+        # 1) clips -> frames (no torch needed)
+        from core.frames import extract_frames
+
+        specs = extract_frames(args.clips_dir, out / "frames",
+                               max_frames=args.max_frames, clips=args.clip)
+        image_paths = [s.path for s in specs]
     if not image_paths:
-        raise SystemExit("No frames extracted — check --clips-dir / --clip.")
+        raise SystemExit("No frames found — check --clips-dir / --clip / --images-dir.")
 
     # 2) frames -> predictions (torch, GPU)
     from core.reconstruct import reconstruct
@@ -63,6 +77,7 @@ def main() -> None:
         conf_percentile=args.conf_percentile,
         viz_dir=None if args.no_viz else str(out / "viz"),
         clean=not args.no_clean,
+        voxel=args.voxel,
     )
 
     # 3) predictions -> GLB
