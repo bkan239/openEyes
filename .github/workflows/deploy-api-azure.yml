@@ -60,7 +60,7 @@ jobs:
         run: azd deploy --no-prompt
 
       - name: Configure OpenAI key
-        if: ${{ secrets.OPENAI_API_KEY != '' }}
+        if: secrets.OPENAI_API_KEY != ''
         run: |
           RG="rg-${{ env.AZURE_ENV_NAME }}"
           APP="$(az webapp list -g "$RG" --query "[?tags.\"azd-service-name\"=='api'].name | [0]" -o tsv)"

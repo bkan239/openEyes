@@ -61,7 +61,7 @@ resource api 'Microsoft.Web/sites@2022-09-01' = {
       linuxFxVersion: 'PYTHON|3.12'
       alwaysOn: true
       healthCheckPath: '/health'
-      appCommandLine: 'python -m uvicorn app.main:app --host 0.0.0.0 --port 8000'
+      appCommandLine: 'bash startup.sh'
       appSettings: [
         {
           name: 'SCM_DO_BUILD_DURING_DEPLOYMENT'
