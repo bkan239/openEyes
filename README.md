@@ -1,1 +1,198 @@
-Init
+# OpenEyes
+
+**One witness can lie. Five cannot.**
+
+OpenEyes verifies whether real-world events actually happened, by corroboration instead of single-source detection. Instead of asking one video *"are you real?"*, we ask *"did anyone else see it too?"* — and turn scattered, independent recordings into one verifiable event.
+
+Built for the Open Innovation track, aligned with **UN SDG 16 — Peace, Justice and Strong Institutions**.
+
+---
+
+## The problem
+
+A single video can be faked, and increasingly nobody can tell. That breaks trust in two directions:
+
+- **The lie wins** — a fake spreads faster than it can be debunked.
+- **The truth loses** — a real video gets dismissed as a "deepfake," and nobody can prove otherwise (the *liar's dividend*).
+
+A society only holds together while it trusts a shared reality. OpenEyes rebuilds that shared reality from the bottom up.
+
+---
+
+## How it works
+
+The core idea is **corroboration**. One angle is a claim. Many independent angles that line up are proof. You can fake one clip; you cannot easily fake five devices recording the same second, in the same place, from different angles.
+
+```
+Capture  ──▶  Match  ──▶  Score  ──▶  Show
+ signed       audio       trust       public event
+ metadata     sync        score       + every angle
+```
+
+---
+
+## Features
+
+### 1. AI verification — is it real or AI?
+Every uploaded clip is checked on its own before anything else:
+- Deepfake / manipulation detection on frames and audio
+- Capture provenance & integrity check (see below)
+- Produces a per-clip signal that feeds the overall trust score
+
+> This is the first line of defense, but a single clip is still only a *claim*. The real strength comes from corroboration in the next steps.
+
+#### Capture provenance (hash + signature)
+
+At the moment of capture, the app computes a hash over the media **plus** its context, signs it on-device, and registers it:
+
+```
+capture ──▶  hash = SHA-256( image_bytes + GPS + timestamp + device_id )
+        ──▶  signature = sign(hash)        # Secure Enclave / Android Keystore
+        ──▶  push { hash, signature, gps, time, device } to DB
+```
+
+When the same media appears again, we re-hash it and compare:
+
+- **Hash matches** → bit-for-bit identical to what was registered → untampered, captured through OpenEyes
+- **Hash differs** → the media was altered after capture
+- We can also surface the registered **GPS + time** as context
+
+**What this proves:** *integrity* (not modified since capture) and *provenance* (came through our app).
+
+**What it does NOT prove — and we say this openly:**
+- It does not prove the *content* is real. Filming an AI image or a screen still produces a valid hash (the "analog hole"). This is exactly why corroboration across multiple independent angles matters — a single signed upload is not enough.
+- Client GPS can be spoofed on rooted devices, and a client clock can be faked → the **server stamps its own receive-time**, and GPS is treated as a signal, not proof.
+- A hash alone is worthless without the **on-device signature** — otherwise anyone could forge a matching DB entry. The private key never leaves the secure hardware.
+
+### 2. News clustering — everyone can be a journalist
+Scattered uploads are automatically grouped into a single verified **story**:
+- Time + geo clustering groups candidate clips
+- **Audio fingerprinting** confirms clips share the same moment (same soundtrack = same event)
+- The crowd reports, the evidence confirms — no newsroom required
+- Output is an event page, not an article: it proves itself
+
+### 3. Footage from different angles
+The differentiator. Multiple confirmed clips of one event are presented together:
+- Side-by-side, audio-synced multi-angle player
+- Each angle cross-checks the others for consistency
+- Trust score reflects how many independent sources corroborate, not just a yes/no
+
+### 4. 3D reconstruction
+From multiple angles we reconstruct the scene geometry:
+- Buildings and spaces rebuilt from independent viewpoints
+- Geometry that lines up across uncoordinated sources is extremely hard to fake
+- Strongest corroboration signal, and the clearest "wow" for the demo
+
+---
+
+## Trust score
+
+The output is never a naked number. It's an explainable **chain of evidence**:
+
+| Signal | Example |
+| --- | --- |
+| Capture provenance | signed hash matches, untampered since capture |
+| Independent sources | 4 unrelated uploads |
+| Time & location consistency | all within the same window/place |
+| Audio sync | matching soundtrack across clips |
+| Manipulation scan | no tampering detected |
+| Geometry (3D) | angles reconstruct a consistent scene |
+
+The score is a **probability, not a verdict**. Corroboration drastically lowers the chance of a fake; it does not claim absolute certainty.
+
+---
+
+## Architecture (high level)
+
+```
+┌─────────────┐     ┌──────────────────────────────┐     ┌──────────────┐
+│  Mobile /   │     │           Backend             │     │   Verified   │
+│  Web upload │ ──▶ │                               │ ──▶ │     Hub      │
+│  (signed    │     │  • AI verify (deepfake/meta)  │     │  (event      │
+│   capture)  │     │  • Audio-sync clustering      │     │   pages,     │
+└─────────────┘     │  • Multi-angle matching       │     │   badge/API) │
+                    │  • 3D reconstruction          │     └──────────────┘
+                    │  • Trust scoring              │
+                    └──────────────────────────────┘
+```
+
+---
+
+## Tech stack
+
+> Adjust to what the team actually uses — placeholders below.
+
+- **Mobile / capture:** React Native (or PWA) for upload + signed metadata
+- **Frontend / hub:** Next.js + Tailwind
+- **Backend / API:** Python (FastAPI) or Node
+- **AI verification:** deepfake/tamper model + metadata checks
+- **Audio sync:** audio fingerprinting (e.g. chromaprint-style matching)
+- **3D reconstruction:** photogrammetry / structure-from-motion pipeline
+- **Storage:** object storage for media + DB for events/clips
+
+---
+
+## Repository structure
+
+> Proposed layout — create as you go.
+
+```
+openeyes/
+├── apps/
+│   ├── mobile/        # capture + upload
+│   └── web/           # verified hub
+├── services/
+│   ├── verify/        # AI deepfake/metadata checks
+│   ├── cluster/       # audio sync + event clustering
+│   ├── angles/        # multi-angle matching
+│   └── recon3d/       # 3D reconstruction
+├── packages/
+│   └── shared/        # types, trust-score logic
+└── README.md
+```
+
+---
+
+## Hackathon plan
+
+The goal of the hackathon build is a **convincing demo**, not a production system. Priorities:
+
+### Must build (the demo)
+- [ ] Upload flow that accepts multiple clips with metadata
+- [ ] Audio-sync clustering: group clips of the same event
+- [ ] Multi-angle player: same event, several angles side by side
+- [ ] Trust score with an explainable breakdown
+- [ ] Hub UI: one verified event page
+
+### Strong to have (differentiators)
+- [ ] AI deepfake/tamper signal feeding the score
+- [ ] Basic 3D reconstruction from the demo clips (even rough)
+
+### Demo strategy
+- Pre-record 3–4 clips of the same staged event from different angles
+- The pipeline shows what happens when they're uploaded
+- Audio sync is the visual star: "these clips were matched automatically because the soundtracks line up"
+- Show the 3D reconstruction as the closer if it's working; otherwise present it as roadmap
+
+### Out of scope (for now)
+- Live streaming
+- Full editorial / moderation system
+- Rewards or tokens for uploads (creates an incentive to fake — deliberately avoided)
+
+---
+
+## Known risks & honest answers (for Q&A)
+
+- **Collusion:** if several people coordinate a fake, corroboration weakens — which is exactly why the trust score is a probability, not a yes/no.
+- **The analog hole:** a signed hash proves the file wasn't altered, not that the *content* is real — someone can film an AI image. Corroboration across independent angles + 3D geometry is what closes this gap.
+- **GPS / time spoofing:** treated as signals, with the server stamping receive-time, not as proof on their own.
+- **Source safety:** linking footage to time, place and device can endanger people filming under surveillance/authoritarian conditions. Protecting contributor identity is a core design requirement, not an afterthought.
+- **Liar's dividend:** corroboration defends both ways — it exposes fakes *and* proves a real video was real.
+
+---
+
+## Why this matters
+
+When the internet goes dark or footage gets dismissed as "fake," whatever happens next can be denied — no proof, no witnesses. Some places live this already; the rest of the world is heading the same way.
+
+**We don't build the truth. We build the ground it can stand on again.**
