@@ -1,0 +1,13 @@
+{
+  "name": "OpenEyes",
+  "short_name": "OpenEyes",
+  "description": "Verify real-world events by corroboration across independent recordings. One witness can lie. Five cannot.",
+  "icons": [
+    { "src": "/favicon.svg", "type": "image/svg+xml", "sizes": "any" },
+    { "src": "/icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any" },
+    { "src": "/icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "any" }
+  ],
+  "theme_color": "#161310",
+  "background_color": "#070b16",
+  "display": "standalone"
+}

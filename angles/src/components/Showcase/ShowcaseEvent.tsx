@@ -3,6 +3,7 @@ import { MapView } from "@/components/Map/MapView";
 import { Timeline } from "@/components/LiveMode/Timeline";
 import { ShowcaseFloatingVideos } from "@/components/Showcase/ShowcaseFloatingVideos";
 import { AnglesPanel } from "@/components/Showcase/AnglesPanel";
+import { ApertureMark } from "@/components/brand/ApertureMark";
 import { useApp } from "@/state/store";
 import { useLivePerspectives } from "@/state/useLivePerspectives";
 import {
@@ -279,7 +280,11 @@ export function ShowcaseEvent() {
       {surfaceReady && (
         <div className="ev-topbar">
           <div className="ev-eyebrow">
-            OpenEyes<span className="sep" />Verified Event<span className="dim">· MPLS-0419</span>
+            <span className="ev-brand">
+              <ApertureMark size={15} title="OpenEyes" />
+              OpenEyes
+            </span>
+            <span className="sep" />Verified Event<span className="dim">· MPLS-0419</span>
           </div>
           <h1 className="ev-headline">
             The killing of Alex&nbsp;Pretti, <em>corroborated</em>.

@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OpenEyes — Logo-Mockups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{ --bg:#070b16; --card:#0d1424; --line:rgba(150,180,255,.12);
+  --ink:#e8f0ff; --dim:#8aa0c8; --ice:#eaf2ff; --red:#ff453a; }
+*{box-sizing:border-box} html{-webkit-font-smoothing:antialiased}
+/* logo primitives (inherit color from container via currentColor) */
+.m{stroke:currentColor;fill:none}
+.dim{stroke:currentColor;fill:none;opacity:.5}
+.reds{stroke:var(--red);fill:none}
+.red{fill:var(--red);stroke:none}
+.fillc{fill:currentColor;stroke:none}
+body{margin:0;font-family:Inter,system-ui,sans-serif;color:var(--ink);
+  background:radial-gradient(1200px 700px at 50% -10%,#101a33 0%,var(--bg) 60%);
+  min-height:100vh;padding:56px 28px 80px}
+.head{max-width:1120px;margin:0 auto 40px}
+.tag{display:inline-block;font-size:12px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--ice);background:rgba(120,160,255,.1);border:1px solid var(--line);
+  padding:6px 12px;border-radius:999px}
+h1{font-size:34px;font-weight:700;letter-spacing:-.02em;margin:18px 0 6px}
+.head p{color:var(--dim);font-size:15px;margin:0;max-width:640px;line-height:1.5}
+.grid{max-width:1120px;margin:0 auto;display:grid;gap:20px;
+  grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+.card{background:linear-gradient(180deg,#0f1730,#0b1120);border:1px solid var(--line);
+  border-radius:20px;padding:20px;display:flex;flex-direction:column;
+  transition:transform .15s ease,border-color .15s ease}
+.card:hover{transform:translateY(-3px);border-color:rgba(150,180,255,.28)}
+.card-h{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.num{font-size:11px;font-weight:600;color:var(--dim);letter-spacing:.1em;
+  border:1px solid var(--line);border-radius:6px;padding:2px 6px}
+.card-h h2{font-size:15px;font-weight:600;margin:0;letter-spacing:-.01em}
+.stage{display:grid;place-items:center;height:168px;color:var(--ice);
+  background:radial-gradient(380px 180px at 50% 40%,rgba(80,130,255,.12),transparent 70%);
+  border-radius:14px;margin:6px 0 4px}
+.wm{text-align:center;font-size:24px;letter-spacing:-.03em;margin:6px 0 16px}
+.wm-light{color:var(--dim);font-weight:300}
+.wm-bold{color:var(--ink);font-weight:700}
+.swatches{display:flex;gap:10px;align-items:center;justify-content:center;margin-bottom:14px}
+.chip{display:grid;place-items:center;width:58px;height:58px;border-radius:12px;
+  border:1px solid var(--line)}
+.chip.light{background:#f4f8ff;color:#0b1020}
+.chip.dark{background:#0a0f1d;color:var(--ice)}
+.chip.fav{position:relative;width:58px}
+.chip.fav span{position:absolute;bottom:3px;font-size:8px;color:#5a6b88;letter-spacing:.05em}
+.concept{color:var(--dim);font-size:12.5px;line-height:1.5;margin:auto 0 0;
+  border-top:1px solid var(--line);padding-top:12px}
+.foot{max-width:1120px;margin:44px auto 0;color:#5a6b88;font-size:12.5px;text-align:center}
+</style></head>
+<body>
+  <div class="head">
+    <span class="tag">OpenEyes · Brand Exploration</span>
+    <h1>10 Konzepte — komplett verschieden</h1>
+    <p>Zehn eigenständige Metaphern (nicht zehnmal ein Auge), die dieselbe Idee tragen:
+       viele unabhängige Aufnahmen bestätigen <em>ein</em> Ereignis.
+       Groß auf Dunkel, plus Inversion auf Weiß und 16-px-Favicon-Test.</p>
+  </div>
+  <main class="grid">
+  <article class="card">
+    <header class="card-h"><span class="num">01</span><h2>Aperture-Linse</h2></header>
+    <div class="stage"><svg viewBox="0 0 120 120" width="140" height="140" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><circle class="m" cx="60" cy="60" r="46"/><path class="m" d="M75.97,54.19 L62.95,43.26 L46.98,49.07 L44.03,65.81 L57.05,76.74 L73.02,70.93 Z"/><line class="dim" x1="75.97" y1="54.19" x2="80.17" y2="18.66"/><line class="dim" x1="62.95" y1="43.26" x2="34.28" y2="21.86"/><line class="dim" x1="46.98" y1="49.07" x2="14.11" y2="63.21"/><line class="dim" x1="44.03" y1="65.81" x2="39.83" y2="101.34"/><line class="dim" x1="57.05" y1="76.74" x2="85.72" y2="98.14"/><line class="dim" x1="73.02" y1="70.93" x2="105.89" y2="56.79"/><circle class="red" cx="60" cy="60" r="7.00"/><circle cx="57.76" cy="57.76" r="1.82" fill="#fff" opacity=".85"/></g></svg></div>
+    <div class="wm"><span class="wm-light">open</span><span class="wm-bold">eyes</span></div>
+    <div class="swatches">
+      <div class="chip light"><svg viewBox="0 0 120 120" width="40" height="40" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><circle class="m" cx="60" cy="60" r="46"/><path class="m" d="M75.97,54.19 L62.95,43.26 L46.98,49.07 L44.03,65.81 L57.05,76.74 L73.02,70.93 Z"/><line class="dim" x1="75.97" y1="54.19" x2="80.17" y2="18.66"/><line class="dim" x1="62.95" y1="43.26" x2="34.28" y2="21.86"/><line class="dim" x1="46.98" y1="49.07" x2="14.11" y2="63.21"/><line class="dim" x1="44.03" y1="65.81" x2="39.83" y2="101.34"/><line class="dim" x1="57.05" y1="76.74" x2="85.72" y2="98.14"/><line class="dim" x1="73.02" y1="70.93" x2="105.89" y2="56.79"/><circle class="red" cx="60" cy="60" r="7.00"/><circle cx="57.76" cy="57.76" r="1.82" fill="#fff" opacity=".85"/></g></svg></div>
+      <div class="chip dark"><svg viewBox="0 0 120 120" width="40" height="40" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><circle class="m" cx="60" cy="60" r="46"/><path class="m" d="M75.97,54.19 L62.95,43.26 L46.98,49.07 L44.03,65.81 L57.05,76.74 L73.02,70.93 Z"/><line class="dim" x1="75.97" y1="54.19" x2="80.17" y2="18.66"/><line class="dim" x1="62.95" y1="43.26" x2="34.28" y2="21.86"/><line class="dim" x1="46.98" y1="49.07" x2="14.11" y2="63.21"/><line class="dim" x1="44.03" y1="65.81" x2="39.83" y2="101.34"/><line class="dim" x1="57.05" y1="76.74" x2="85.72" y2="98.14"/><line class="dim" x1="73.02" y1="70.93" x2="105.89" y2="56.79"/><circle class="red" cx="60" cy="60" r="7.00"/><circle cx="57.76" cy="57.76" r="1.82" fill="#fff" opacity=".85"/></g></svg></div>
+      <div class="chip light fav"><svg viewBox="0 0 120 120" width="16" height="16" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><circle class="m" cx="60" cy="60" r="46"/><path class="m" d="M75.97,54.19 L62.95,43.26 L46.98,49.07 L44.03,65.81 L57.05,76.74 L73.02,70.93 Z"/><line class="dim" x1="75.97" y1="54.19" x2="80.17" y2="18.66"/><line class="dim" x1="62.95" y1="43.26" x2="34.28" y2="21.86"/><line class="dim" x1="46.98" y1="49.07" x2="14.11" y2="63.21"/><line class="dim" x1="44.03" y1="65.81" x2="39.83" y2="101.34"/><line class="dim" x1="57.05" y1="76.74" x2="85.72" y2="98.14"/><line class="dim" x1="73.02" y1="70.93" x2="105.89" y2="56.79"/><circle class="red" cx="60" cy="60" r="7.00"/><circle cx="57.76" cy="57.76" r="1.82" fill="#fff" opacity=".85"/></g></svg><span>16px</span></div>
+    </div>
+    <p class="concept">Kamera-Blende: das Aufnahmegerät als Marke. Skaliert top.</p>
+  </article>
+  <article class="card">
+    <header class="card-h"><span class="num">02</span><h2>Strichliste „5“</h2></header>
+    <div class="stage"><svg viewBox="0 0 120 120" width="140" height="140" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><line class="m" x1="42" y1="40" x2="42" y2="80" stroke-width="5.4"/><line class="m" x1="51" y1="40" x2="51" y2="80" stroke-width="5.4"/><line class="m" x1="60" y1="40" x2="60" y2="80" stroke-width="5.4"/><line class="m" x1="69" y1="40" x2="69" y2="80" stroke-width="5.4"/><line class="reds" x1="36" y1="84" x2="75" y2="36" stroke-width="5.4"/></g></svg></div>
+    <div class="wm"><span class="wm-light">open</span><span class="wm-bold">eyes</span></div>
+    <div class="swatches">
+      <div class="chip light"><svg viewBox="0 0 120 120" width="40" height="40" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><line class="m" x1="42" y1="40" x2="42" y2="80" stroke-width="5.4"/><line class="m" x1="51" y1="40" x2="51" y2="80" stroke-width="5.4"/><line class="m" x1="60" y1="40" x2="60" y2="80" stroke-width="5.4"/><line class="m" x1="69" y1="40" x2="69" y2="80" stroke-width="5.4"/><line class="reds" x1="36" y1="84" x2="75" y2="36" stroke-width="5.4"/></g></svg></div>
+      <div class="chip dark"><svg viewBox="0 0 120 120" width="40" height="40" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><line class="m" x1="42" y1="40" x2="42" y2="80" stroke-width="5.4"/><line class="m" x1="51" y1="40" x2="51" y2="80" stroke-width="5.4"/><line class="m" x1="60" y1="40" x2="60" y2="80" stroke-width="5.4"/><line class="m" x1="69" y1="40" x2="69" y2="80" stroke-width="5.4"/><line class="reds" x1="36" y1="84" x2="75" y2="36" stroke-width="5.4"/></g></svg></div>
+      <div class="chip light fav"><svg viewBox="0 0 120 120" width="16" height="16" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><line class="m" x1="42" y1="40" x2="42" y2="80" stroke-width="5.4"/><line class="m" x1="51" y1="40" x2="51" y2="80" stroke-width="5.4"/><line class="m" x1="60" y1="40" x2="60" y2="80" stroke-width="5.4"/><line class="m" x1="69" y1="40" x2="69" y2="80" stroke-width="5.4"/><line class="reds" x1="36" y1="84" x2="75" y2="36" stroke-width="5.4"/></g></svg><span>16px</span></div>
+    </div>
+    <p class="concept">Tally mit fünf Strichen — „fünf können nicht lügen“.</p>
+  </article>
+  <article class="card">
+    <header class="card-h"><span class="num">03</span><h2>Triangulation</h2></header>
+    <div class="stage"><svg viewBox="0 0 120 120" width="140" height="140" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><line class="dim" x1="60.00" y1="28.00" x2="60" y2="60"/><line class="dim" x1="32.29" y1="76.00" x2="60" y2="60"/><line class="dim" x1="87.71" y1="76.00" x2="60" y2="60"/><path class="m" d="M53.87,33.14 A8.0,8.0 0 1 1 66.13,33.14 L60.00,45.00 Z"/><circle class="fillc" cx="60.00" cy="28.00" r="2.7"/><path class="m" d="M26.16,81.14 A8.0,8.0 0 1 1 38.42,81.14 L32.29,93.00 Z"/><circle class="fillc" cx="32.29" cy="76.00" r="2.7"/><path class="m" d="M81.58,81.14 A8.0,8.0 0 1 1 93.84,81.14 L87.71,93.00 Z"/><circle class="fillc" cx="87.71" cy="76.00" r="2.7"/><circle class="red" cx="60" cy="60" r="7.00"/><circle cx="57.76" cy="57.76" r="1.82" fill="#fff" opacity=".85"/></g></svg></div>
+    <div class="wm"><span class="wm-light">open</span><span class="wm-bold">eyes</span></div>
+    <div class="swatches">
+      <div class="chip light"><svg viewBox="0 0 120 120" width="40" height="40" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><line class="dim" x1="60.00" y1="28.00" x2="60" y2="60"/><line class="dim" x1="32.29" y1="76.00" x2="60" y2="60"/><line class="dim" x1="87.71" y1="76.00" x2="60" y2="60"/><path class="m" d="M53.87,33.14 A8.0,8.0 0 1 1 66.13,33.14 L60.00,45.00 Z"/><circle class="fillc" cx="60.00" cy="28.00" r="2.7"/><path class="m" d="M26.16,81.14 A8.0,8.0 0 1 1 38.42,81.14 L32.29,93.00 Z"/><circle class="fillc" cx="32.29" cy="76.00" r="2.7"/><path class="m" d="M81.58,81.14 A8.0,8.0 0 1 1 93.84,81.14 L87.71,93.00 Z"/><circle class="fillc" cx="87.71" cy="76.00" r="2.7"/><circle class="red" cx="60" cy="60" r="7.00"/><circle cx="57.76" cy="57.76" r="1.82" fill="#fff" opacity=".85"/></g></svg></div>
+      <div class="chip dark"><svg viewBox="0 0 120 120" width="40" height="40" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><line class="dim" x1="60.00" y1="28.00" x2="60" y2="60"/><line class="dim" x1="32.29" y1="76.00" x2="60" y2="60"/><line class="dim" x1="87.71" y1="76.00" x2="60" y2="60"/><path class="m" d="M53.87,33.14 A8.0,8.0 0 1 1 66.13,33.14 L60.00,45.00 Z"/><circle class="fillc" cx="60.00" cy="28.00" r="2.7"/><path class="m" d="M26.16,81.14 A8.0,8.0 0 1 1 38.42,81.14 L32.29,93.00 Z"/><circle class="fillc" cx="32.29" cy="76.00" r="2.7"/><path class="m" d="M81.58,81.14 A8.0,8.0 0 1 1 93.84,81.14 L87.71,93.00 Z"/><circle class="fillc" cx="87.71" cy="76.00" r="2.7"/><circle class="red" cx="60" cy="60" r="7.00"/><circle cx="57.76" cy="57.76" r="1.82" fill="#fff" opacity=".85"/></g></svg></div>
+      <div class="chip light fav"><svg viewBox="0 0 120 120" width="16" height="16" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><line class="dim" x1="60.00" y1="28.00" x2="60" y2="60"/><line class="dim" x1="32.29" y1="76.00" x2="60" y2="60"/><line class="dim" x1="87.71" y1="76.00" x2="60" y2="60"/><path class="m" d="M53.87,33.14 A8.0,8.0 0 1 1 66.13,33.14 L60.00,45.00 Z"/><circle class="fillc" cx="60.00" cy="28.00" r="2.7"/><path class="m" d="M26.16,81.14 A8.0,8.0 0 1 1 38.42,81.14 L32.29,93.00 Z"/><circle class="fillc" cx="32.29" cy="76.00" r="2.7"/><path class="m" d="M81.58,81.14 A8.0,8.0 0 1 1 93.84,81.14 L87.71,93.00 Z"/><circle class="fillc" cx="87.71" cy="76.00" r="2.7"/><circle class="red" cx="60" cy="60" r="7.00"/><circle cx="57.76" cy="57.76" r="1.82" fill="#fff" opacity=".85"/></g></svg><span>16px</span></div>
+    </div>
+    <p class="concept">Drei Aufnahmen triangulieren ein Ereignis — Capture + Geo.</p>
+  </article>
+  <article class="card">
+    <header class="card-h"><span class="num">04</span><h2>Audio-Sync</h2></header>
+    <div class="stage"><svg viewBox="0 0 120 120" width="140" height="140" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><line class="m" x1="22.0" y1="51" x2="22.0" y2="69" stroke-width="5"/><line class="m" x1="29.6" y1="44" x2="29.6" y2="76" stroke-width="5"/><line class="m" x1="37.2" y1="36" x2="37.2" y2="84" stroke-width="5"/><line class="m" x1="44.8" y1="47" x2="44.8" y2="73" stroke-width="5"/><line class="m" x1="52.4" y1="30" x2="52.4" y2="90" stroke-width="5"/><line class="reds" x1="60.0" y1="21" x2="60.0" y2="99" stroke-width="5"/><line class="m" x1="67.6" y1="30" x2="67.6" y2="90" stroke-width="5"/><line class="m" x1="75.2" y1="47" x2="75.2" y2="73" stroke-width="5"/><line class="m" x1="82.8" y1="36" x2="82.8" y2="84" stroke-width="5"/><line class="m" x1="90.4" y1="44" x2="90.4" y2="76" stroke-width="5"/><line class="m" x1="98.0" y1="51" x2="98.0" y2="69" stroke-width="5"/></g></svg></div>
+    <div class="wm"><span class="wm-light">open</span><span class="wm-bold">eyes</span></div>
+    <div class="swatches">
+      <div class="chip light"><svg viewBox="0 0 120 120" width="40" height="40" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><line class="m" x1="22.0" y1="51" x2="22.0" y2="69" stroke-width="5"/><line class="m" x1="29.6" y1="44" x2="29.6" y2="76" stroke-width="5"/><line class="m" x1="37.2" y1="36" x2="37.2" y2="84" stroke-width="5"/><line class="m" x1="44.8" y1="47" x2="44.8" y2="73" stroke-width="5"/><line class="m" x1="52.4" y1="30" x2="52.4" y2="90" stroke-width="5"/><line class="reds" x1="60.0" y1="21" x2="60.0" y2="99" stroke-width="5"/><line class="m" x1="67.6" y1="30" x2="67.6" y2="90" stroke-width="5"/><line class="m" x1="75.2" y1="47" x2="75.2" y2="73" stroke-width="5"/><line class="m" x1="82.8" y1="36" x2="82.8" y2="84" stroke-width="5"/><line class="m" x1="90.4" y1="44" x2="90.4" y2="76" stroke-width="5"/><line class="m" x1="98.0" y1="51" x2="98.0" y2="69" stroke-width="5"/></g></svg></div>
+      <div class="chip dark"><svg viewBox="0 0 120 120" width="40" height="40" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><line class="m" x1="22.0" y1="51" x2="22.0" y2="69" stroke-width="5"/><line class="m" x1="29.6" y1="44" x2="29.6" y2="76" stroke-width="5"/><line class="m" x1="37.2" y1="36" x2="37.2" y2="84" stroke-width="5"/><line class="m" x1="44.8" y1="47" x2="44.8" y2="73" stroke-width="5"/><line class="m" x1="52.4" y1="30" x2="52.4" y2="90" stroke-width="5"/><line class="reds" x1="60.0" y1="21" x2="60.0" y2="99" stroke-width="5"/><line class="m" x1="67.6" y1="30" x2="67.6" y2="90" stroke-width="5"/><line class="m" x1="75.2" y1="47" x2="75.2" y2="73" stroke-width="5"/><line class="m" x1="82.8" y1="36" x2="82.8" y2="84" stroke-width="5"/><line class="m" x1="90.4" y1="44" x2="90.4" y2="76" stroke-width="5"/><line class="m" x1="98.0" y1="51" x2="98.0" y2="69" stroke-width="5"/></g></svg></div>
+      <div class="chip light fav"><svg viewBox="0 0 120 120" width="16" height="16" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><line class="m" x1="22.0" y1="51" x2="22.0" y2="69" stroke-width="5"/><line class="m" x1="29.6" y1="44" x2="29.6" y2="76" stroke-width="5"/><line class="m" x1="37.2" y1="36" x2="37.2" y2="84" stroke-width="5"/><line class="m" x1="44.8" y1="47" x2="44.8" y2="73" stroke-width="5"/><line class="m" x1="52.4" y1="30" x2="52.4" y2="90" stroke-width="5"/><line class="reds" x1="60.0" y1="21" x2="60.0" y2="99" stroke-width="5"/><line class="m" x1="67.6" y1="30" x2="67.6" y2="90" stroke-width="5"/><line class="m" x1="75.2" y1="47" x2="75.2" y2="73" stroke-width="5"/><line class="m" x1="82.8" y1="36" x2="82.8" y2="84" stroke-width="5"/><line class="m" x1="90.4" y1="44" x2="90.4" y2="76" stroke-width="5"/><line class="m" x1="98.0" y1="51" x2="98.0" y2="69" stroke-width="5"/></g></svg><span>16px</span></div>
+    </div>
+    <p class="concept">Wellenform: Clips über ihre gemeinsame Tonspur synchronisiert.</p>
+  </article>
+  <article class="card">
+    <header class="card-h"><span class="num">05</span><h2>Schild + Haken</h2></header>
+    <div class="stage"><svg viewBox="0 0 120 120" width="140" height="140" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path class="m" d="M60,15 L97,29 L97,57 Q97,87 60,105 Q23,87 23,57 L23,29 Z"/><path class="reds" d="M45,60 l10,12 l23,-28" stroke-width="6"/></g></svg></div>
+    <div class="wm"><span class="wm-light">open</span><span class="wm-bold">eyes</span></div>
+    <div class="swatches">
+      <div class="chip light"><svg viewBox="0 0 120 120" width="40" height="40" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path class="m" d="M60,15 L97,29 L97,57 Q97,87 60,105 Q23,87 23,57 L23,29 Z"/><path class="reds" d="M45,60 l10,12 l23,-28" stroke-width="6"/></g></svg></div>
+      <div class="chip dark"><svg viewBox="0 0 120 120" width="40" height="40" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path class="m" d="M60,15 L97,29 L97,57 Q97,87 60,105 Q23,87 23,57 L23,29 Z"/><path class="reds" d="M45,60 l10,12 l23,-28" stroke-width="6"/></g></svg></div>
+      <div class="chip light fav"><svg viewBox="0 0 120 120" width="16" height="16" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path class="m" d="M60,15 L97,29 L97,57 Q97,87 60,105 Q23,87 23,57 L23,29 Z"/><path class="reds" d="M45,60 l10,12 l23,-28" stroke-width="6"/></g></svg><span>16px</span></div>
+    </div>
+    <p class="concept">Vertrauen & Justiz (SDG 16) — verifiziert.</p>
+  </article>
+  <article class="card">
+    <header class="card-h"><span class="num">06</span><h2>Schlüssel / Signatur</h2></header>
+    <div class="stage"><svg viewBox="0 0 120 120" width="140" height="140" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><circle class="m" cx="45" cy="45" r="15"/><circle class="red" cx="45" cy="45" r="6"/><line class="m" x1="54" y1="54" x2="87" y2="87" stroke-width="7"/><line class="m" x1="73" y1="79" x2="81" y2="71" stroke-width="6"/><line class="m" x1="82" y1="88" x2="90" y2="80" stroke-width="6"/></g></svg></div>
+    <div class="wm"><span class="wm-light">open</span><span class="wm-bold">eyes</span></div>
+    <div class="swatches">
+      <div class="chip light"><svg viewBox="0 0 120 120" width="40" height="40" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><circle class="m" cx="45" cy="45" r="15"/><circle class="red" cx="45" cy="45" r="6"/><line class="m" x1="54" y1="54" x2="87" y2="87" stroke-width="7"/><line class="m" x1="73" y1="79" x2="81" y2="71" stroke-width="6"/><line class="m" x1="82" y1="88" x2="90" y2="80" stroke-width="6"/></g></svg></div>
+      <div class="chip dark"><svg viewBox="0 0 120 120" width="40" height="40" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><circle class="m" cx="45" cy="45" r="15"/><circle class="red" cx="45" cy="45" r="6"/><line class="m" x1="54" y1="54" x2="87" y2="87" stroke-width="7"/><line class="m" x1="73" y1="79" x2="81" y2="71" stroke-width="6"/><line class="m" x1="82" y1="88" x2="90" y2="80" stroke-width="6"/></g></svg></div>
+      <div class="chip light fav"><svg viewBox="0 0 120 120" width="16" height="16" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><circle class="m" cx="45" cy="45" r="15"/><circle class="red" cx="45" cy="45" r="6"/><line class="m" x1="54" y1="54" x2="87" y2="87" stroke-width="7"/><line class="m" x1="73" y1="79" x2="81" y2="71" stroke-width="6"/><line class="m" x1="82" y1="88" x2="90" y2="80" stroke-width="6"/></g></svg><span>16px</span></div>
+    </div>
+    <p class="concept">Secure-Enclave-Signatur: hardware-signierte Echtheit.</p>
+  </article>
+  <article class="card">
+    <header class="card-h"><span class="num">07</span><h2>Konvergenz-Pfeile</h2></header>
+    <div class="stage"><svg viewBox="0 0 120 120" width="140" height="140" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path class="m" d="M99.27,52.37 L84.00,60.00 L99.27,67.63"/><path class="m" d="M73.02,22.18 L72.00,39.22 L86.24,29.81"/><path class="m" d="M33.76,29.81 L48.00,39.22 L46.98,22.18"/><path class="m" d="M20.73,67.63 L36.00,60.00 L20.73,52.37"/><path class="m" d="M46.98,97.82 L48.00,80.78 L33.76,90.19"/><path class="m" d="M86.24,90.19 L72.00,80.78 L73.02,97.82"/><circle class="red" cx="60" cy="60" r="7.00"/><circle cx="57.76" cy="57.76" r="1.82" fill="#fff" opacity=".85"/></g></svg></div>
+    <div class="wm"><span class="wm-light">open</span><span class="wm-bold">eyes</span></div>
+    <div class="swatches">
+      <div class="chip light"><svg viewBox="0 0 120 120" width="40" height="40" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path class="m" d="M99.27,52.37 L84.00,60.00 L99.27,67.63"/><path class="m" d="M73.02,22.18 L72.00,39.22 L86.24,29.81"/><path class="m" d="M33.76,29.81 L48.00,39.22 L46.98,22.18"/><path class="m" d="M20.73,67.63 L36.00,60.00 L20.73,52.37"/><path class="m" d="M46.98,97.82 L48.00,80.78 L33.76,90.19"/><path class="m" d="M86.24,90.19 L72.00,80.78 L73.02,97.82"/><circle class="red" cx="60" cy="60" r="7.00"/><circle cx="57.76" cy="57.76" r="1.82" fill="#fff" opacity=".85"/></g></svg></div>
+      <div class="chip dark"><svg viewBox="0 0 120 120" width="40" height="40" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path class="m" d="M99.27,52.37 L84.00,60.00 L99.27,67.63"/><path class="m" d="M73.02,22.18 L72.00,39.22 L86.24,29.81"/><path class="m" d="M33.76,29.81 L48.00,39.22 L46.98,22.18"/><path class="m" d="M20.73,67.63 L36.00,60.00 L20.73,52.37"/><path class="m" d="M46.98,97.82 L48.00,80.78 L33.76,90.19"/><path class="m" d="M86.24,90.19 L72.00,80.78 L73.02,97.82"/><circle class="red" cx="60" cy="60" r="7.00"/><circle cx="57.76" cy="57.76" r="1.82" fill="#fff" opacity=".85"/></g></svg></div>
+      <div class="chip light fav"><svg viewBox="0 0 120 120" width="16" height="16" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path class="m" d="M99.27,52.37 L84.00,60.00 L99.27,67.63"/><path class="m" d="M73.02,22.18 L72.00,39.22 L86.24,29.81"/><path class="m" d="M33.76,29.81 L48.00,39.22 L46.98,22.18"/><path class="m" d="M20.73,67.63 L36.00,60.00 L20.73,52.37"/><path class="m" d="M46.98,97.82 L48.00,80.78 L33.76,90.19"/><path class="m" d="M86.24,90.19 L72.00,80.78 L73.02,97.82"/><circle class="red" cx="60" cy="60" r="7.00"/><circle cx="57.76" cy="57.76" r="1.82" fill="#fff" opacity=".85"/></g></svg><span>16px</span></div>
+    </div>
+    <p class="concept">Viele Blickwinkel laufen auf einen Punkt zu.</p>
+  </article>
+  <article class="card">
+    <header class="card-h"><span class="num">08</span><h2>Hex-Cluster</h2></header>
+    <div class="stage"><svg viewBox="0 0 120 120" width="140" height="140" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path class="dim" d="M90.83,42.20 L79.92,35.90 L69.01,42.20 L69.01,54.80 L79.92,61.10 L90.83,54.80 Z"/><path class="dim" d="M70.91,30.70 L60.00,24.40 L49.09,30.70 L49.09,43.30 L60.00,49.60 L70.91,43.30 Z"/><path class="dim" d="M50.99,42.20 L40.08,35.90 L29.17,42.20 L29.17,54.80 L40.08,61.10 L50.99,54.80 Z"/><path class="dim" d="M50.99,65.20 L40.08,58.90 L29.17,65.20 L29.17,77.80 L40.08,84.10 L50.99,77.80 Z"/><path class="dim" d="M70.91,76.70 L60.00,70.40 L49.09,76.70 L49.09,89.30 L60.00,95.60 L70.91,89.30 Z"/><path class="dim" d="M90.83,65.20 L79.92,58.90 L69.01,65.20 L69.01,77.80 L79.92,84.10 L90.83,77.80 Z"/><path class="m" d="M70.91,53.70 L60.00,47.40 L49.09,53.70 L49.09,66.30 L60.00,72.60 L70.91,66.30 Z"/><circle class="red" cx="60" cy="60" r="6.00"/><circle cx="58.08" cy="58.08" r="1.56" fill="#fff" opacity=".85"/></g></svg></div>
+    <div class="wm"><span class="wm-light">open</span><span class="wm-bold">eyes</span></div>
+    <div class="swatches">
+      <div class="chip light"><svg viewBox="0 0 120 120" width="40" height="40" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path class="dim" d="M90.83,42.20 L79.92,35.90 L69.01,42.20 L69.01,54.80 L79.92,61.10 L90.83,54.80 Z"/><path class="dim" d="M70.91,30.70 L60.00,24.40 L49.09,30.70 L49.09,43.30 L60.00,49.60 L70.91,43.30 Z"/><path class="dim" d="M50.99,42.20 L40.08,35.90 L29.17,42.20 L29.17,54.80 L40.08,61.10 L50.99,54.80 Z"/><path class="dim" d="M50.99,65.20 L40.08,58.90 L29.17,65.20 L29.17,77.80 L40.08,84.10 L50.99,77.80 Z"/><path class="dim" d="M70.91,76.70 L60.00,70.40 L49.09,76.70 L49.09,89.30 L60.00,95.60 L70.91,89.30 Z"/><path class="dim" d="M90.83,65.20 L79.92,58.90 L69.01,65.20 L69.01,77.80 L79.92,84.10 L90.83,77.80 Z"/><path class="m" d="M70.91,53.70 L60.00,47.40 L49.09,53.70 L49.09,66.30 L60.00,72.60 L70.91,66.30 Z"/><circle class="red" cx="60" cy="60" r="6.00"/><circle cx="58.08" cy="58.08" r="1.56" fill="#fff" opacity=".85"/></g></svg></div>
+      <div class="chip dark"><svg viewBox="0 0 120 120" width="40" height="40" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path class="dim" d="M90.83,42.20 L79.92,35.90 L69.01,42.20 L69.01,54.80 L79.92,61.10 L90.83,54.80 Z"/><path class="dim" d="M70.91,30.70 L60.00,24.40 L49.09,30.70 L49.09,43.30 L60.00,49.60 L70.91,43.30 Z"/><path class="dim" d="M50.99,42.20 L40.08,35.90 L29.17,42.20 L29.17,54.80 L40.08,61.10 L50.99,54.80 Z"/><path class="dim" d="M50.99,65.20 L40.08,58.90 L29.17,65.20 L29.17,77.80 L40.08,84.10 L50.99,77.80 Z"/><path class="dim" d="M70.91,76.70 L60.00,70.40 L49.09,76.70 L49.09,89.30 L60.00,95.60 L70.91,89.30 Z"/><path class="dim" d="M90.83,65.20 L79.92,58.90 L69.01,65.20 L69.01,77.80 L79.92,84.10 L90.83,77.80 Z"/><path class="m" d="M70.91,53.70 L60.00,47.40 L49.09,53.70 L49.09,66.30 L60.00,72.60 L70.91,66.30 Z"/><circle class="red" cx="60" cy="60" r="6.00"/><circle cx="58.08" cy="58.08" r="1.56" fill="#fff" opacity=".85"/></g></svg></div>
+      <div class="chip light fav"><svg viewBox="0 0 120 120" width="16" height="16" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path class="dim" d="M90.83,42.20 L79.92,35.90 L69.01,42.20 L69.01,54.80 L79.92,61.10 L90.83,54.80 Z"/><path class="dim" d="M70.91,30.70 L60.00,24.40 L49.09,30.70 L49.09,43.30 L60.00,49.60 L70.91,43.30 Z"/><path class="dim" d="M50.99,42.20 L40.08,35.90 L29.17,42.20 L29.17,54.80 L40.08,61.10 L50.99,54.80 Z"/><path class="dim" d="M50.99,65.20 L40.08,58.90 L29.17,65.20 L29.17,77.80 L40.08,84.10 L50.99,77.80 Z"/><path class="dim" d="M70.91,76.70 L60.00,70.40 L49.09,76.70 L49.09,89.30 L60.00,95.60 L70.91,89.30 Z"/><path class="dim" d="M90.83,65.20 L79.92,58.90 L69.01,65.20 L69.01,77.80 L79.92,84.10 L90.83,77.80 Z"/><path class="m" d="M70.91,53.70 L60.00,47.40 L49.09,53.70 L49.09,66.30 L60.00,72.60 L70.91,66.30 Z"/><circle class="red" cx="60" cy="60" r="6.00"/><circle cx="58.08" cy="58.08" r="1.56" fill="#fff" opacity=".85"/></g></svg><span>16px</span></div>
+    </div>
+    <p class="concept">Verstreute Aufnahmen, geclustert zu einem Ereignis.</p>
+  </article>
+  <article class="card">
+    <header class="card-h"><span class="num">09</span><h2>Zeugen-Kette</h2></header>
+    <div class="stage"><svg viewBox="0 0 120 120" width="140" height="140" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><circle cx="60" cy="60" r="33.0" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-dasharray="26.54 14.93"/><circle class="red" cx="60" cy="60" r="7.00"/><circle cx="57.76" cy="57.76" r="1.82" fill="#fff" opacity=".85"/></g></svg></div>
+    <div class="wm"><span class="wm-light">open</span><span class="wm-bold">eyes</span></div>
+    <div class="swatches">
+      <div class="chip light"><svg viewBox="0 0 120 120" width="40" height="40" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><circle cx="60" cy="60" r="33.0" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-dasharray="26.54 14.93"/><circle class="red" cx="60" cy="60" r="7.00"/><circle cx="57.76" cy="57.76" r="1.82" fill="#fff" opacity=".85"/></g></svg></div>
+      <div class="chip dark"><svg viewBox="0 0 120 120" width="40" height="40" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><circle cx="60" cy="60" r="33.0" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-dasharray="26.54 14.93"/><circle class="red" cx="60" cy="60" r="7.00"/><circle cx="57.76" cy="57.76" r="1.82" fill="#fff" opacity=".85"/></g></svg></div>
+      <div class="chip light fav"><svg viewBox="0 0 120 120" width="16" height="16" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><circle cx="60" cy="60" r="33.0" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-dasharray="26.54 14.93"/><circle class="red" cx="60" cy="60" r="7.00"/><circle cx="57.76" cy="57.76" r="1.82" fill="#fff" opacity=".85"/></g></svg><span>16px</span></div>
+    </div>
+    <p class="concept">Fünf verkettete Knoten — ein unzerbrechlicher Ring.</p>
+  </article>
+  <article class="card">
+    <header class="card-h"><span class="num">10</span><h2>Clip-Stapel</h2></header>
+    <div class="stage"><svg viewBox="0 0 120 120" width="140" height="140" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><rect class="dim" x="33" y="30" width="46" height="38" rx="8" transform="rotate(-11 56 49)"/><rect class="dim" x="45" y="32" width="46" height="38" rx="8" transform="rotate(9 68 51)"/><rect class="m" x="36" y="44" width="48" height="40" rx="9"/><path class="red" d="M54,54 L54,74 L72,64 Z"/></g></svg></div>
+    <div class="wm"><span class="wm-light">open</span><span class="wm-bold">eyes</span></div>
+    <div class="swatches">
+      <div class="chip light"><svg viewBox="0 0 120 120" width="40" height="40" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><rect class="dim" x="33" y="30" width="46" height="38" rx="8" transform="rotate(-11 56 49)"/><rect class="dim" x="45" y="32" width="46" height="38" rx="8" transform="rotate(9 68 51)"/><rect class="m" x="36" y="44" width="48" height="40" rx="9"/><path class="red" d="M54,54 L54,74 L72,64 Z"/></g></svg></div>
+      <div class="chip dark"><svg viewBox="0 0 120 120" width="40" height="40" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><rect class="dim" x="33" y="30" width="46" height="38" rx="8" transform="rotate(-11 56 49)"/><rect class="dim" x="45" y="32" width="46" height="38" rx="8" transform="rotate(9 68 51)"/><rect class="m" x="36" y="44" width="48" height="40" rx="9"/><path class="red" d="M54,54 L54,74 L72,64 Z"/></g></svg></div>
+      <div class="chip light fav"><svg viewBox="0 0 120 120" width="16" height="16" role="img"><g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><rect class="dim" x="33" y="30" width="46" height="38" rx="8" transform="rotate(-11 56 49)"/><rect class="dim" x="45" y="32" width="46" height="38" rx="8" transform="rotate(9 68 51)"/><rect class="m" x="36" y="44" width="48" height="40" rx="9"/><path class="red" d="M54,54 L54,74 L72,64 Z"/></g></svg><span>16px</span></div>
+    </div>
+    <p class="concept">Mehrere Clips lösen sich in ein abspielbares Ereignis auf.</p>
+  </article>
+  </main>
+  <p class="foot">Vektor (SVG), parametrisch generiert · Akzent #ff453a · Eis-Blau #eaf2ff · Nachtblau #070b16</p>
+</body></html>
