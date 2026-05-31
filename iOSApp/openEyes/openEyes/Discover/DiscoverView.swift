@@ -490,6 +490,10 @@ struct DiscoverStoryDetailView: View {
                             .fixedSize(horizontal: false, vertical: true)
                             .frame(maxWidth: .infinity, alignment: .leading)
 
+                        if !story.sources.isEmpty {
+                            sourcesSection
+                        }
+
                         if isLoadingArticles && story.articles.isEmpty {
                             HStack(spacing: 10) {
                                 ProgressView()
@@ -686,6 +690,49 @@ struct DiscoverStoryDetailView: View {
                     .background(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .fill(Ink.surfaceSunken)
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private var sourcesSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Text("Sources")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Ink.text)
+                Text("\(story.sources.count)")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(Ink.textMuted)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .background(Capsule().fill(Ink.surfaceSunken))
+                Spacer()
+            }
+
+            ForEach(story.sources) { source in
+                Link(destination: source.url) {
+                    HStack {
+                        Text(source.name)
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(Ink.text)
+                            .lineLimit(1)
+                        Spacer()
+                        Image(systemName: "arrow.up.right")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Ink.textSubtle)
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(Ink.surfaceSunken)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .stroke(Ink.border, lineWidth: 1)
+                            )
                     )
                 }
                 .buttonStyle(.plain)

@@ -3,6 +3,7 @@ import { MapView } from "@/components/Map/MapView";
 import { Timeline } from "@/components/LiveMode/Timeline";
 import { ShowcaseFloatingVideos } from "@/components/Showcase/ShowcaseFloatingVideos";
 import { AnglesPanel } from "@/components/Showcase/AnglesPanel";
+import { LogoMark } from "@/components/Logo";
 import { useApp } from "@/state/store";
 import { useLivePerspectives } from "@/state/useLivePerspectives";
 import {
@@ -279,6 +280,7 @@ export function ShowcaseEvent() {
       {surfaceReady && (
         <div className="ev-topbar">
           <div className="ev-eyebrow">
+            <LogoMark size={17} className="ev-eyebrow-mark" />
             OpenEyes<span className="sep" />Verified Event<span className="dim">· MPLS-0419</span>
           </div>
           <h1 className="ev-headline">

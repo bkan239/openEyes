@@ -1,6 +1,6 @@
 # Unrelated to either Vercel project — keep uploads lean for the API deploy.
 iOSApp/
-services/
+services/recon3d/
 packages/
 scripts/
 .sst/

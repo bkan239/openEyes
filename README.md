@@ -1,4 +1,14 @@
-# OpenEyes
+<p align="center">
+  <img src="media/openeyes-logo.png" alt="OpenEyes" width="540" />
+</p>
+
+<p align="center">
+  <a href="media/openeyes-demo.mp4">
+    <img src="media/openeyes-demo.gif" alt="OpenEyes demo — one event, five corroborating angles, rebuilt in 3D" width="760" />
+  </a>
+  <br />
+  <em>▶ <a href="media/openeyes-demo.mp4">Watch in full quality (MP4)</a> · silent · built with <a href="video/">Remotion</a></em>
+</p>
 
 **One witness can lie. Five cannot.**
 

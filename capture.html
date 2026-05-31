@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OpenEyes Capture</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
+        --ink: #1c1b19;
+        --on-ink: #fcfbf8;
+        --on-ink-muted: #a8a296;
+        --primary-on-ink: #6fbdb0;
+      }
+      body {
+        margin: 0;
+        min-height: 100svh;
+        display: grid;
+        place-items: center;
+        padding: 1rem;
+        color: var(--on-ink);
+        background:
+          linear-gradient(180deg, rgba(28, 27, 25, 0.86) 0%, rgba(28, 27, 25, 0.98) 100%),
+          radial-gradient(120% 60% at 20% 0%, rgba(111, 189, 176, 0.12), transparent 55%),
+          var(--ink);
+      }
+      .center-wrap {
+        display: grid;
+        justify-items: center;
+        gap: 0.9rem;
+        width: min(28rem, 100%);
+      }
+      button,
+      .button {
+        border-radius: 999px;
+        padding: 0.88rem 1.35rem;
+        font-size: 1rem;
+        font-weight: 600;
+        border: 1px solid transparent;
+        transition: transform 0.08s ease, opacity 0.18s ease;
+        cursor: pointer;
+      }
+      button:active,
+      .button:active {
+        transform: scale(0.98);
+      }
+      #captureBtn {
+        background: var(--primary-on-ink);
+        color: var(--ink);
+        min-width: 12.5rem;
+      }
+      input[type="file"] {
+        display: none;
+      }
+      #status {
+        min-height: 1.3rem;
+        font-size: 0.9rem;
+        color: var(--on-ink-muted);
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="center-wrap">
+      <button id="captureBtn" type="button">Capture Photo</button>
+      <input id="cameraInput" type="file" accept="image/*" capture="environment" />
+      <div id="status"></div>
+    </div>
+
+    <script>
+      const captureBtn = document.getElementById("captureBtn");
+      const input = document.getElementById("cameraInput");
+      const statusEl = document.getElementById("status");
+
+      function showStatus(message, isError = false) {
+        statusEl.textContent = message;
+        statusEl.style.color = isError ? "#fca5a5" : "";
+      }
+
+      function fileToDataUrl(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      }
+
+      async function uploadCapturedPhoto(file) {
+        const capturedAt = new Date().toISOString();
+        captureBtn.disabled = true;
+        showStatus("Uploading...");
+        try {
+          const imageDataUrl = await fileToDataUrl(file);
+          const response = await fetch("/captures", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ imageDataUrl, capturedAt }),
+          });
+          const payload = await response.json();
+          if (!response.ok) {
+            throw new Error(payload.error || `Upload failed (${response.status})`);
+          }
+          showStatus("Uploaded");
+          window.setTimeout(() => showStatus(""), 1200);
+        } catch (error) {
+          showStatus(error.message || "Upload failed.", true);
+        } finally {
+          input.value = "";
+          captureBtn.disabled = false;
+        }
+      }
+
+      captureBtn.addEventListener("click", () => {
+        input.click();
+      });
+
+      input.addEventListener("change", async () => {
+        const file = input.files && input.files[0];
+        if (!file) return;
+        await uploadCapturedPhoto(file);
+      });
+    </script>
+  </body>
+</html>

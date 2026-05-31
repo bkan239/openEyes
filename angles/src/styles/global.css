@@ -523,6 +523,7 @@ input.ghost::placeholder { color: var(--text-faint); }
 }
 .ev-eyebrow .sep { width: 22px; height: 1px; background: var(--accent); opacity: 0.6; }
 .ev-eyebrow .dim { color: var(--ink-dim); }
+.ev-eyebrow-mark { flex: none; margin-right: -4px; transform: translateY(-0.5px); }
 .ev-headline {
   margin: 14px 0 0;
   font-family: var(--font-serif);

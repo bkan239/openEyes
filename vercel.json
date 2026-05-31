@@ -5,6 +5,9 @@
   "framework": null,
   "rewrites": [
     { "source": "/health", "destination": "/api/health" },
-    { "source": "/", "destination": "/api/health" }
+    { "source": "/captures/export/zip", "destination": "/api/captures-export-zip" },
+    { "source": "/captures", "destination": "/api/captures" },
+    { "source": "/capture", "destination": "/capture.html" },
+    { "source": "/", "destination": "/capture.html" }
   ]
 }

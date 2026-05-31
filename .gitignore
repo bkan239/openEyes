@@ -29,8 +29,7 @@ venv/
 .mypy_cache/
 
 # Env & secrets
-.env
-.env.*
+.env*
 !.env.example
 
 # Logs
@@ -54,3 +53,4 @@ skills-lock.json
 
 # Local media test fixtures (uploaded clips)
 /tmp-media/
+~$OpenEyes-Pitch-Deck (16).pptx

@@ -70,8 +70,41 @@ def load_model(device: str = "cuda"):
     return model
 
 
-def reconstruct(model, image_dir, out_dir, device: str = "cuda"):
-    """images -> Gaussians + poses -> fly-through video (+ .ply). Returns out dir."""
+def _trajectories(extrinsic, intrinsic, multi: bool):
+    """Trajectory variants built from the predicted input poses.
+
+    save_interpolated_video interpolates THROUGH whatever pose sequence we pass
+    (with `t` = interpolated frames between consecutive views), so different
+    orderings/speeds give visibly different fly-throughs. All are honest — the
+    camera only ever passes through/among the witnessed viewpoints.
+    """
+    import torch
+
+    ax = 1 if extrinsic.dim() == 4 else 0          # the "view" axis
+    variants = [("flythrough", extrinsic, intrinsic, 12),   # forward (canonical)
+                ("slow", extrinsic, intrinsic, 28)]         # same path, slower/smoother
+    if multi:
+        try:
+            er, ir = extrinsic.flip(ax), intrinsic.flip(ax)
+            variants.append(("reverse", er, ir, 12))
+            variants.append(("pingpong",
+                             torch.cat([extrinsic, er], ax),
+                             torch.cat([intrinsic, ir], ax), 10))
+        except Exception as e:
+            print(f"[anysplat] reverse/pingpong variants skipped ({e})")
+    return variants
+
+
+def reconstruct(model, image_dir, out_dir, device: str = "cuda", trajectories: bool = True):
+    """images -> Gaussians + poses -> RGB fly-through video(s). Returns list of mp4 paths.
+
+    Renders the **RGB** video (rgb.mp4), not the depth map, and — when
+    ``trajectories`` is set — several trajectory variants (forward / slow /
+    reverse / ping-pong), each as ``<out_dir>/<name>.mp4``. `flythrough.mp4` is
+    the canonical forward one.
+    """
+    import shutil
+
     import torch
     from src.utils.image import process_image                # <-- verify vs demo_gradio.py
     from src.misc.image_io import save_interpolated_video    # <-- verify vs demo_gradio.py
@@ -90,20 +123,36 @@ def reconstruct(model, image_dir, out_dir, device: str = "cuda"):
     imgs = imgs.to("cuda" if torch.cuda.is_available() else device)
     b, k, _, h, w = imgs.shape
 
-    t = time.time()
+    t0 = time.time()
     with torch.inference_mode():
-        gaussians, pose = model.inference((imgs + 1) * 0.5)   # forward pass
+        gaussians, pose = model.inference((imgs + 1) * 0.5)   # ONE forward pass
     extrinsic, intrinsic = pose["extrinsic"], pose["intrinsic"]
+    print(f"[anysplat] inference: {k} imgs in {time.time() - t0:.1f}s; rendering trajectories...")
 
-    # Render a fly-through interpolated through the recovered cameras.
-    save_interpolated_video(extrinsic, intrinsic, b, h, w, gaussians, str(out_dir), model.decoder)
+    videos: list[Path] = []
+    for name, extr, intr, t in _trajectories(extrinsic, intrinsic, trajectories):
+        sub = out_dir / f"_{name}"
+        sub.mkdir(parents=True, exist_ok=True)
+        try:
+            # writes rgb.mp4 (color) + depth.mp4 into `sub`
+            save_interpolated_video(extr, intr, b, h, w, gaussians, str(sub), model.decoder, t=t)
+            rgb = sub / "rgb.mp4"
+            if rgb.exists():
+                dst = out_dir / f"{name}.mp4"      # the RGB render, not depth
+                shutil.copy(rgb, dst)
+                videos.append(dst)
+                print(f"[anysplat]   ✓ {name}.mp4")
+            else:
+                print(f"[anysplat]   ✗ {name}: no rgb.mp4 in {sub}")
+        except Exception as e:
+            print(f"[anysplat]   ✗ {name} failed: {e}")
 
-    # Best-effort export of the raw Gaussians for SuperSplat / interactive viewing.
+    # Best-effort raw-Gaussian export for SuperSplat / interactive viewing.
     try:
         from src.misc.image_io import export_ply  # name may differ; optional
         export_ply(gaussians, str(out_dir / "gaussians.ply"))
     except Exception:
         pass
 
-    print(f"[anysplat] {k} imgs -> {out_dir} in {time.time() - t:.1f}s")
-    return out_dir
+    print(f"[anysplat] {k} imgs -> {len(videos)} videos in {time.time() - t0:.1f}s -> {out_dir}")
+    return videos
