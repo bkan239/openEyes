@@ -14,15 +14,31 @@ final class NewsFeedStore: ObservableObject {
     /// Clusters shown on the map must have at least this many corroborating articles.
     static let mapMinimumArticleCount = NewsStoryMapper.mapMinimumArticleCount
 
+<<<<<<< HEAD
+    func refresh(limit: Int = 100) async {
+=======
     func refresh(limit _: Int = 100) async {
+>>>>>>> refs/remotes/origin/main
         isLoading = true
         loadError = nil
         defer { isLoading = false }
 
+<<<<<<< HEAD
+        do {
+            let clusters = try await service.fetchClusters(limit: limit)
+            guard !clusters.isEmpty else {
+                stories = MockData.stories
+                isUsingMockFallback = true
+                loadError = "No clustered stories yet. Run POST /news/ingest on the API."
+                return
+            }
+            stories = clusters.map(NewsStoryMapper.story(from:))
+=======
         let cachedClusters = await cache.load()
         if !cachedClusters.isEmpty, isPulseSnapshot(cachedClusters) {
             let enriched = clustersWithAlexPrettiCase(cachedClusters)
             stories = prioritizeAlex(enriched.map(NewsStoryMapper.story(from:)))
+>>>>>>> refs/remotes/origin/main
             isUsingMockFallback = false
             loadError = "Demo mode: using local stored clusters."
             return
@@ -53,6 +69,13 @@ final class NewsFeedStore: ObservableObject {
     }
 
     private var mapStories: [NewsStory] {
+<<<<<<< HEAD
+        let candidates = isUsingMockFallback ? MockData.stories : stories
+        return candidates.filter { story in
+            story.articleCount >= Self.mapMinimumArticleCount
+                && NewsStoryMapper.isPlottableCoordinate(story.mapCenter)
+        }
+=======
         stories.filter { story in
             story.articleCount >= Self.mapMinimumArticleCount
                 && NewsStoryMapper.isPlottableCoordinate(story.mapCenter)
@@ -141,5 +164,6 @@ final class NewsFeedStore: ObservableObject {
             reordered.insert(alex, at: 0)
         }
         return reordered
+>>>>>>> refs/remotes/origin/main
     }
 }

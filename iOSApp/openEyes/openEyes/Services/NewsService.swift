@@ -244,7 +244,11 @@ enum NewsStoryMapper {
         return !(coordinate.latitude == 0 && coordinate.longitude == 0)
     }
 
+<<<<<<< HEAD
+    private static func uniqueSources(from articles: [ArticleItem], count: Int) -> [NewsSource] {
+=======
     private static func uniqueSources(from articles: [ArticleItem], count: Int, clusterID: String) -> [NewsSource] {
+>>>>>>> refs/remotes/origin/main
         var seen = Set<String>()
         var sources: [NewsSource] = []
         for article in articles {

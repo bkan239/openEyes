@@ -24,7 +24,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
   try {
     const limit = Number(req.query.limit ?? 200);
-    const captures = await listCaptures(Number.isFinite(limit) ? Math.min(limit, 1000) : 200);
+    const windowMinutes = Number(req.query.windowMinutes ?? 10);
+    const safeLimit = Number.isFinite(limit) ? Math.min(limit, 1000) : 200;
+    const safeWindowMinutes = Number.isFinite(windowMinutes) && windowMinutes > 0 ? windowMinutes : 10;
+    const minCapturedAtMs = Date.now() - safeWindowMinutes * 60 * 1000;
+    const captures = (await listCaptures(safeLimit)).filter(
+      (capture) => capture.capturedAtMs >= minCapturedAtMs,
+    );
     const zip = new JSZip();
 
     for (const capture of captures) {
