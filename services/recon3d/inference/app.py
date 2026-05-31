@@ -264,6 +264,35 @@ def reset():
     return {"reset": ok, "url": RESET_URL or None}
 
 
+@app.get("/local")
+def local(dir: str):
+    """Reconstruct a hero fly-through from a LOCAL folder of photos on the pod, using
+    the warm model (fast, no reload). Handy to (re)generate the bundled fallback when
+    the app is down. e.g.:
+      curl 'localhost:8008/local?dir=/workspace/openEyes/services/recon3d/data/easy_data/final_test'
+    """
+    d = Path(dir)
+    if not d.is_absolute():
+        d = HERE / dir
+    if not d.exists():
+        return JSONResponse({"error": f"no such dir: {d}"}, status_code=400)
+
+    stamp = "local_" + time.strftime("%Y%m%d_%H%M%S")
+    t = time.time()
+    try:
+        with _infer_lock:
+            log(f"local hero reconstruct from {d} -> {stamp}")
+            hero = ar.reconstruct_hero(get_model(), d, OUT / stamp)
+    except Exception as e:
+        log(f"✗ reconstruction failed: {e}\n{traceback.format_exc()}")
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+    shutil.copy(hero, OUT / "latest.mp4")
+    secs = round(time.time() - t, 1)
+    log(f"✅ local hero {stamp} in {secs}s")
+    return JSONResponse({"video": f"/outputs/{stamp}/{hero.name}", "seconds": secs})
+
+
 @app.get("/from_url")
 def from_url(url: str):
     """Same as /go but with an explicit zip URL (?url=...)."""
