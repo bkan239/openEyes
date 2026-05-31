@@ -3,16 +3,17 @@ import { useState, type CSSProperties } from "react";
 /**
  * 3D-reconstruction view (full-screen overlay over the map showcase).
  *
- * Source of the fly-through video. Default = a bundled, offline-safe render.
- * To show the LIVE pod result instead (audience uploads → reconstruction),
- * point this at the RunPod HTTP proxy, e.g.:
- *   const RECON_VIDEO_SRC = "https://<POD_ID>-8008.proxy.runpod.net/outputs/latest.mp4";
- * (plain <video> playback needs no CORS.)
+ * Tries LIVE_URL first (the pod's latest reconstruction during the pitch), then
+ * falls back to the bundled hero render. Set LIVE_URL to the RunPod proxy for the
+ * live demo; leave it "" to just play the bundled file. Plain <video> needs no CORS.
  */
-const RECON_VIDEO_SRC = "/recon/hero.mp4";
+const LIVE_URL = ""; // e.g. "https://<POD_ID>-8008.proxy.runpod.net/outputs/latest.mp4"
+const FALLBACK_URL = "/recon/hero.mp4";
+const SOURCES = [LIVE_URL, FALLBACK_URL].filter(Boolean);
 
 export function ReconstructionView({ onClose }: { onClose: () => void }) {
-  const [errored, setErrored] = useState(false);
+  const [idx, setIdx] = useState(0);
+  const failed = idx >= SOURCES.length;
 
   return (
     <div style={overlayStyle}>
@@ -29,19 +30,21 @@ export function ReconstructionView({ onClose }: { onClose: () => void }) {
         ← Back to map
       </button>
 
-      {errored ? (
+      {failed ? (
         <div style={fallbackStyle}>
-          No reconstruction video yet. Drop a render at <code>angles/public/recon/hero.mp4</code>,
-          or point <code>RECON_VIDEO_SRC</code> at the live pod URL.
+          No reconstruction video available. Drop a render at
+          <code> angles/public/recon/hero.mp4</code>, or set <code>LIVE_URL</code> to the
+          live pod URL.
         </div>
       ) : (
         <video
-          src={RECON_VIDEO_SRC}
+          key={SOURCES[idx]}
+          src={SOURCES[idx]}
           controls
           autoPlay
           loop
           playsInline
-          onError={() => setErrored(true)}
+          onError={() => setIdx((i) => i + 1)}
           style={videoStyle}
         />
       )}

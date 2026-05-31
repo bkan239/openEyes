@@ -38,15 +38,42 @@ def _convert_heic(image_dir: Path) -> None:
     if not heics:
         return
     import pillow_heif
-    from PIL import Image
+    from PIL import Image, ImageOps
     pillow_heif.register_heif_opener()
     n = 0
     for p in heics:
         jpg = p.with_suffix(".jpg")
         if not jpg.exists():
-            Image.open(p).convert("RGB").save(jpg, "JPEG", quality=95)
+            # exif_transpose bakes in the rotation so the pixels are upright
+            ImageOps.exif_transpose(Image.open(p)).convert("RGB").save(jpg, "JPEG", quality=95)
             n += 1
     print(f"[anysplat] converted {n} HEIC -> JPG")
+
+
+def _normalize_orientation(paths: list[str]) -> None:
+    """Apply EXIF orientation so portrait phone photos aren't reconstructed sideways.
+    AnySplat's loader ignores the EXIF orientation tag, so bake it into the pixels."""
+    from PIL import Image, ImageOps
+
+    fixed = 0
+    for p in paths:
+        try:
+            im = Image.open(p)
+            if im.getexif().get(0x0112, 1) != 1:          # 0x0112 = Orientation, 1 = normal
+                ImageOps.exif_transpose(im).convert("RGB").save(p, quality=95)
+                fixed += 1
+        except Exception:
+            pass
+    if fixed:
+        print(f"[anysplat] fixed orientation on {fixed} image(s)")
+
+
+def _prep_images(image_dir) -> list[str]:
+    """HEIC->JPG, upright-orientation, recursive list. Use everywhere images load."""
+    image_dir = Path(image_dir)
+    paths = _prep_images(image_dir)
+    _normalize_orientation(paths)
+    return paths
 
 
 def fetch_and_unzip(url: str, dest_dir) -> Path:
@@ -131,8 +158,7 @@ def reconstruct(model, image_dir, out_dir, device: str = "cuda", trajectories: b
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    _convert_heic(image_dir)
-    paths = _list_images(image_dir)
+    paths = _prep_images(image_dir)
     if not paths:
         raise SystemExit(f"[anysplat] no images in {image_dir}")
 
@@ -196,8 +222,7 @@ def reconstruct_hero(model, image_dir, out_dir, device: str = "cuda",
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    _convert_heic(image_dir)
-    paths = _list_images(image_dir)
+    paths = _prep_images(image_dir)
     if not paths:
         raise SystemExit(f"[anysplat] no images found under {image_dir}")
 
