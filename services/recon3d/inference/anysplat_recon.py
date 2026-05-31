@@ -75,7 +75,8 @@ def _normalize_orientation(paths: list[str]) -> None:
 def _prep_images(image_dir) -> list[str]:
     """HEIC->JPG, upright-orientation, recursive list. Use everywhere images load."""
     image_dir = Path(image_dir)
-    paths = _prep_images(image_dir)
+    _convert_heic(image_dir)
+    paths = _list_images(image_dir)
     _normalize_orientation(paths)
     return paths
 
