@@ -1,8 +1,9 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { MapView } from "@/components/Map/MapView";
 import { Timeline } from "@/components/LiveMode/Timeline";
 import { ShowcaseFloatingVideos } from "@/components/Showcase/ShowcaseFloatingVideos";
 import { AnglesPanel } from "@/components/Showcase/AnglesPanel";
+import { ReconstructionView } from "@/components/Reconstruction/ReconstructionView";
 import { useApp } from "@/state/store";
 import { useLivePerspectives } from "@/state/useLivePerspectives";
 import {
@@ -52,12 +53,29 @@ function CenterIcon() {
   );
 }
 
+function tabBtnStyle(active: boolean): CSSProperties {
+  return {
+    border: "none",
+    cursor: "pointer",
+    padding: "7px 16px",
+    borderRadius: 999,
+    fontSize: 12,
+    fontWeight: 600,
+    fontFamily: "inherit",
+    letterSpacing: 0.02,
+    color: active ? "#1C1B19" : "var(--ink, #f4f1ea)",
+    background: active ? "var(--accent, #6FBDB0)" : "transparent",
+    transition: "background 0.15s ease, color 0.15s ease"
+  };
+}
+
 export function ShowcaseEvent() {
   const setUiMode = useApp((s) => s.setUiMode);
   const setShowcaseMapReady = useApp((s) => s.setShowcaseMapReady);
   const showcaseMapReady = useApp((s) => s.showcaseMapReady);
   const showcaseIntroLocked = useApp((s) => s.showcaseIntroLocked);
   const setShowcaseIntroLocked = useApp((s) => s.setShowcaseIntroLocked);
+  const [reconTab, setReconTab] = useState<"map" | "recon">("map");
   const resetShowcaseUi = useApp((s) => s.resetShowcaseUi);
   const flyTo = useApp((s) => s.flyTo);
   const setLiveMode = useApp((s) => s.setLiveMode);
@@ -325,6 +343,32 @@ export function ShowcaseEvent() {
         </button>
       )}
 
+      {surfaceReady && (
+        <div
+          style={{
+            position: "absolute",
+            top: 22,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 120,
+            display: "flex",
+            gap: 4,
+            padding: 4,
+            borderRadius: 999,
+            background: "rgba(38,36,31,0.86)",
+            border: "1px solid rgba(252,251,248,0.11)",
+            backdropFilter: "blur(10px)"
+          }}
+        >
+          <button type="button" style={tabBtnStyle(reconTab === "map")} onClick={() => setReconTab("map")}>
+            Map showcase
+          </button>
+          <button type="button" style={tabBtnStyle(reconTab === "recon")} onClick={() => setReconTab("recon")}>
+            3D Reconstruction
+          </button>
+        </div>
+      )}
+
       {liveMode && (
         <>
           <AnglesPanel perspectives={perspectives} total={total} liveCount={liveCount} />
@@ -332,6 +376,8 @@ export function ShowcaseEvent() {
           <ShowcaseFloatingVideos />
         </>
       )}
+
+      {reconTab === "recon" && <ReconstructionView onClose={() => setReconTab("map")} />}
     </div>
   );
 }
