@@ -22,7 +22,7 @@ function clipSegmentOnTimeline(
 
 /**
  * Editorial synced timeline: a play control, the per-perspective initials, a
- * lane per angle (when its footage runs), and a scrubber + playhead. Colours
+ * lane per angle (when its footage runs) and a scrubber + playhead. Colours
  * and ordering come from the shared perspectives model so it matches the panel.
  */
 export function Timeline({
