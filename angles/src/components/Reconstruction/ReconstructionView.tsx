@@ -7,13 +7,18 @@ import { useState, type CSSProperties } from "react";
  * falls back to the bundled hero render. Set LIVE_URL to the RunPod proxy for the
  * live demo; leave it "" to just play the bundled file. Plain <video> needs no CORS.
  */
-const LIVE_URL = "https://pmozvqjxqt6p10-8008.proxy.runpod.net/outputs/latest.mp4";
+// Viewed on the laptop via the forwarded port 8008, so localhost is the reliable
+// source (the RunPod proxy 404s). For a different host, set this to that host's
+// 8008 URL or a public dev-tunnel URL.
+const LIVE_URL = "http://localhost:8008/outputs/latest.mp4";
 const FALLBACK_URL = "/recon/hero.mp4";
 const SOURCES = [LIVE_URL, FALLBACK_URL].filter(Boolean);
 
 export function ReconstructionView({ onClose }: { onClose: () => void }) {
   const [idx, setIdx] = useState(0);
+  const [bust] = useState(() => Date.now());   // cache-bust per open → show newest build
   const failed = idx >= SOURCES.length;
+  const src = SOURCES[idx] + (SOURCES[idx].includes("?") ? "&" : "?") + "t=" + bust;
 
   return (
     <div style={overlayStyle}>
@@ -38,8 +43,8 @@ export function ReconstructionView({ onClose }: { onClose: () => void }) {
         </div>
       ) : (
         <video
-          key={SOURCES[idx]}
-          src={SOURCES[idx]}
+          key={src}
+          src={src}
           controls
           autoPlay
           loop
