@@ -16,6 +16,7 @@ Watch-folder `serve.py` is the simpler alternative; this adds the upload UI.
 
 from __future__ import annotations
 
+import os
 import shutil
 import threading
 import time
@@ -31,6 +32,12 @@ import anysplat_recon as ar
 HERE = Path(__file__).resolve().parent
 OUT = HERE / "outputs"
 OUT.mkdir(exist_ok=True)
+
+# The app's captures zip — pre-baked so the live trigger needs NO typing.
+# Override with:  CAPTURES_URL=... uvicorn app:app ...
+CAPTURES_URL = os.environ.get(
+    "CAPTURES_URL", "https://open-eyes-three.vercel.app/captures/export/zip"
+)
 
 
 def log(msg: str) -> None:
@@ -81,18 +88,24 @@ PAGE = """<!doctype html><html lang="en"><head>
 <h1>OpenEyes — reconstruct the scene</h1>
 <p>Take or pick a few photos of the scene from different spots. We rebuild it in 3D — live.</p>
 <div class="wrap">
-  <label>📷 Choose / take photos<input id="f" type="file" accept="image/*" multiple capture="environment"></label>
-  <button id="go" disabled>Reconstruct</button>
-  <p>— or pull the captures from the app —</p>
-  <input id="url" type="url" placeholder="captures zip URL"
-    style="width:100%;padding:12px;border-radius:10px;border:1px solid #2c3548;background:#11151c;color:#e6e9ef">
-  <button id="goUrl">Reconstruct from app captures</button>
+  <button id="goLatest" style="background:#6FBDB0;color:#11151c;font-size:18px;padding:18px 24px;width:100%">▶ Reconstruct latest captures</button>
   <div id="status"></div>
   <div id="results" class="wrap"></div>
+  <details style="width:100%;color:#8b94a7;font-size:13px">
+    <summary style="cursor:pointer;text-align:center">manual options</summary>
+    <div class="wrap" style="margin-top:12px">
+      <label>📷 Choose / take photos<input id="f" type="file" accept="image/*" multiple capture="environment"></label>
+      <button id="go" disabled>Reconstruct from photos</button>
+      <input id="url" type="url" placeholder="captures zip URL (override)"
+        style="width:100%;padding:12px;border-radius:10px;border:1px solid #2c3548;background:#11151c;color:#e6e9ef">
+      <button id="goUrl">Reconstruct from URL</button>
+    </div>
+  </details>
 </div>
 <script>
  const f=document.getElementById('f'),go=document.getElementById('go'),url=document.getElementById('url'),
-       goUrl=document.getElementById('goUrl'),st=document.getElementById('status'),res=document.getElementById('results');
+       goUrl=document.getElementById('goUrl'),goLatest=document.getElementById('goLatest'),
+       st=document.getElementById('status'),res=document.getElementById('results');
  function showVideos(j){
    const vids=j.videos||(j.video?[j.video]:[]);
    if(!vids.length){ st.textContent='Failed: '+(j.error||'no video produced'); return; }
@@ -105,6 +118,12 @@ PAGE = """<!doctype html><html lang="en"><head>
      res.appendChild(lab); res.appendChild(v);
    }
  }
+ goLatest.onclick=async()=>{
+   goLatest.disabled=true; res.innerHTML=''; st.textContent='Reconstructing latest captures… (a few seconds)';
+   try{ showVideos(await (await fetch('/go')).json()); }
+   catch(e){ st.textContent='Error: '+e; }
+   goLatest.disabled=false;
+ };
  f.onchange=()=>{go.disabled=!f.files.length; st.textContent=f.files.length+' photo(s) selected';};
  go.onclick=async()=>{
    go.disabled=true; res.innerHTML=''; st.textContent='Uploading + reconstructing… (a few seconds)';
@@ -170,15 +189,11 @@ async def reconstruct(images: list[UploadFile] = File(...)):
     return JSONResponse({"videos": urls, "seconds": secs})
 
 
-@app.get("/from_url")
-def from_url(url: str):
-    """WARM live path: fetch the app's captures zip, reconstruct ONE hero fly-through.
-    Model stays resident, so this is seconds (no reload). Trigger from the page or:
-        curl 'http://<host>:8008/from_url?url=<zip-url>'
-    """
+def _reconstruct_from_url(url: str):
+    """Fetch a captures zip and render ONE hero fly-through (warm, seconds)."""
     stamp = time.strftime("%Y%m%d_%H%M%S")
     inputs = OUT / stamp / "inputs"
-    log(f"/from_url: fetching {url} -> {stamp}")
+    log(f"fetching {url} -> {stamp}")
     try:
         ar.fetch_and_unzip(url, inputs)
     except Exception as e:
@@ -200,3 +215,17 @@ def from_url(url: str):
     out_url = f"/outputs/{stamp}/{hero.name}"
     log(f"✅ hero {stamp} in {secs}s -> {out_url}")
     return JSONResponse({"video": out_url, "seconds": secs})
+
+
+@app.get("/go")
+def go():
+    """THE pitch trigger: reconstruct the latest captures (pre-set CAPTURES_URL).
+    No typing — open /go in a browser, click the page button, or:  curl <host>:8008/go
+    """
+    return _reconstruct_from_url(CAPTURES_URL)
+
+
+@app.get("/from_url")
+def from_url(url: str):
+    """Same as /go but with an explicit zip URL (?url=...)."""
+    return _reconstruct_from_url(url)
