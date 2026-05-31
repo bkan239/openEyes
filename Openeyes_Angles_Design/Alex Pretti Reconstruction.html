@@ -1,0 +1,1380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OpenEyes — Alex Pretti, corroborated</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,500&family=Hanken+Grotesk:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+:root {
+  /* Editorial Ink — dark stage (warm near-black, brand tokens) */
+  --bg: #1C1B19;
+  --map-void: #161310;
+  --map-block: #221F1B;
+  --map-block-2: #1E1B17;
+  --street: #2b2722;
+  --street-major: #36302a;
+  --lane: #4a443c;
+
+  --ink: #FCFBF8;          /* warm off-white text on ink */
+  --ink-dim: #A8A296;      /* secondary text on ink */
+  --muted: #847d70;        /* tertiary / captions */
+  --hairline: rgba(252, 251, 248, 0.08);
+  --panel: rgba(38, 36, 31, 0.86);   /* ink-surface */
+  --panel-stroke: rgba(252, 251, 248, 0.11);
+
+  /* Brand accent — petrol/teal that glows on ink (single accent) */
+  --accent: #6FBDB0;
+  --accent-deep: #2f8f83;
+  --victim: #F4EFD9;       /* the subject highlight (warm) */
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Hanken Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+.mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+.serif { font-family: "Newsreader", Georgia, serif; }
+
+#root { position: fixed; inset: 0; }
+
+.stage { position: absolute; inset: 0; background: var(--bg); }
+
+.map-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  cursor: grab;
+}
+.map-svg.dragging { cursor: grabbing; }
+
+/* ---------- map primitives ---------- */
+.blk { fill: var(--map-block); }
+.blk-2 { fill: var(--map-block-2); }
+.road { fill: none; stroke: var(--street); stroke-linecap: round; }
+.road-major { fill: none; stroke: var(--street-major); stroke-linecap: round; }
+.lane-dash {
+  fill: none;
+  stroke: var(--lane);
+  stroke-width: 1.4;
+  stroke-dasharray: 9 11;
+  opacity: 0.55;
+}
+.street-label {
+  fill: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  font-weight: 500;
+}
+
+/* ---------- actors ---------- */
+.actor { transition: opacity 360ms ease; }
+
+.cone-far { opacity: 0.13; }
+.cone-near { opacity: 0.16; }
+.cone-edge { fill: none; stroke-width: 1; opacity: 0.5; }
+
+.fill-agent { fill: var(--agent); }
+.fill-civ { fill: var(--civ); }
+.fill-victim { fill: var(--victim); }
+.stroke-agent { stroke: var(--agent); }
+.stroke-civ { stroke: var(--civ); }
+.stroke-victim { stroke: var(--victim); }
+
+.dot-core { stroke: rgba(22, 19, 16, 0.9); stroke-width: 1.5; }
+.dot-ring { fill: none; stroke-width: 1.4; opacity: 0.5; }
+.dot-glow { opacity: 0.16; filter: blur(7px); }
+.dot-pulse {
+  fill: none; stroke-width: 1.4; opacity: 0;
+  transform-box: fill-box; transform-origin: center;
+  animation: pulse 2.6s ease-out infinite;
+}
+@keyframes pulse {
+  0%   { transform: scale(0.55); opacity: 0.6; }
+  70%  { transform: scale(1.5); opacity: 0; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
+.actor-name {
+  fill: var(--ink-dim);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  font-weight: 500;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+}
+.hide-names .actor-name { display: none; }
+.name-victim { fill: var(--victim); font-weight: 600; letter-spacing: 0.05em; }
+
+/* ---------- HUD ---------- */
+.hud { position: absolute; pointer-events: none; }
+.hud > * { pointer-events: auto; }
+.center-pill, .panel, .zoom, .timeline { pointer-events: auto; }
+
+.topbar {
+  top: 0; left: 0; right: 0;
+  padding: 30px 34px 64px;
+  background: linear-gradient(180deg, rgba(22,19,16,0.96) 0%, rgba(22,19,16,0.74) 46%, rgba(22,19,16,0) 100%);
+  display: flex; flex-direction: column; align-items: flex-start;
+}
+.eyebrow {
+  display: flex; align-items: center; gap: 12px; white-space: nowrap;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 11px; letter-spacing: 0.28em; text-transform: uppercase;
+  color: var(--accent); font-weight: 500;
+}
+.eyebrow .sep { width: 22px; height: 1px; background: var(--accent); opacity: 0.6; }
+.eyebrow .dim { color: var(--ink-dim); }
+.kicker {
+  font-size: 11.5px;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+}
+.headline {
+  margin-top: 14px;
+  font-family: "Newsreader", Georgia, serif;
+  font-size: clamp(34px, 4vw, 58px);
+  font-weight: 500;
+  line-height: 1.02;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+  max-width: 17ch;
+  text-wrap: balance;
+}
+.headline em { font-style: italic; color: var(--accent); }
+.headline.grotesk {
+  font-family: "Hanken Grotesk", sans-serif;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  font-size: clamp(28px, 3.2vw, 46px);
+  line-height: 0.98;
+}
+.dateline {
+  margin-top: 16px;
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 12px; letter-spacing: 0.04em; color: var(--ink-dim);
+}
+.dateline > span { white-space: nowrap; }
+.dateline .dot { width: 3px; height: 3px; border-radius: 999px; background: var(--muted); }
+
+/* corroboration / trust block */
+.trust {
+  margin-top: 20px;
+  display: flex; align-items: center; gap: 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--panel-stroke);
+  border-radius: 14px;
+  background: rgba(38,36,31,0.5);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+.trust-num {
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 34px; font-weight: 500; line-height: 1;
+  color: var(--accent); font-variant-numeric: tabular-nums;
+}
+.trust-meta { display: flex; flex-direction: column; gap: 5px; }
+.trust-label {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted);
+}
+.trust-bars { display: flex; gap: 4px; }
+.trust-bars i {
+  width: 22px; height: 5px; border-radius: 2px;
+  background: var(--accent); display: block;
+}
+.trust-bars i.off { background: var(--hairline); }
+.trust-sub { font-size: 11.5px; color: var(--ink-dim); }
+
+.right-stack {
+  top: 22px; right: 26px;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 12px;
+}
+.pill {
+  display: inline-flex; align-items: center; gap: 9px;
+  height: 42px; padding: 0 18px 0 15px;
+  border-radius: 999px;
+  background: var(--panel);
+  border: 1px solid var(--panel-stroke);
+  color: var(--ink);
+  font-size: 13.5px; font-weight: 550;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transition: border-color 160ms ease, background 160ms ease;
+}
+.pill:hover { border-color: rgba(255,255,255,0.22); }
+.pill svg { display: block; }
+
+.icon-btn {
+  width: 42px; height: 42px;
+  display: grid; place-items: center;
+  border-radius: 999px;
+  background: var(--panel);
+  border: 1px solid var(--panel-stroke);
+  color: var(--ink-dim);
+  cursor: pointer;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transition: border-color 160ms ease, color 160ms ease;
+}
+.icon-btn:hover { border-color: rgba(255,255,255,0.22); color: var(--ink); }
+.icon-btn.active { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 55%, var(--panel-stroke)); }
+
+/* legend */
+.legend {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 13px 15px;
+  border-radius: 14px;
+  background: var(--panel);
+  border: 1px solid var(--panel-stroke);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+.legend-row { display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--ink-dim); }
+.legend-dot { width: 10px; height: 10px; border-radius: 999px; flex: none; }
+
+/* scale bar */
+.scalebar {
+  bottom: 40px; left: 24px;
+  display: flex; flex-direction: column; gap: 5px;
+  color: var(--ink-dim); font-size: 11.5px; letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.scalebar .bar {
+  width: 78px; height: 5px;
+  border: 1px solid rgba(255,255,255,0.28);
+  border-top: none;
+}
+.attrib {
+  bottom: 24px; right: 28px;
+  color: var(--muted); font-size: 11px; letter-spacing: 0.02em;
+}
+
+/* zoom controls */
+.zoom {
+  right: 26px; bottom: 36px;
+  display: flex; flex-direction: column;
+  border-radius: 14px; overflow: hidden;
+  background: var(--panel);
+  border: 1px solid var(--panel-stroke);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+.zoom button {
+  width: 46px; height: 46px;
+  background: none; border: none; color: var(--ink);
+  font-size: 22px; cursor: pointer;
+  display: grid; place-items: center;
+  transition: background 140ms ease;
+}
+.zoom button:hover { background: rgba(255,255,255,0.06); }
+.zoom button:first-child { border-bottom: 1px solid var(--hairline); }
+
+/* ---------- timeline ---------- */
+.timeline {
+  left: 130px;
+  bottom: 24px;
+  padding: 16px 22px 14px;
+  border-radius: 20px;
+  background: var(--panel);
+  border: 1px solid var(--panel-stroke);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 24px 60px -28px rgba(0,0,0,0.85);
+}
+.tl-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 12px;
+}
+.tl-end { font-size: 12.5px; color: var(--muted); letter-spacing: 0.05em; }
+.tl-now { font-size: 14px; color: var(--ink); font-weight: 600; letter-spacing: 0.04em; }
+
+.tl-body { display: flex; align-items: stretch; gap: 16px; }
+.tl-play {
+  flex: none; align-self: center;
+  width: 40px; height: 40px; border-radius: 999px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--panel-stroke);
+  color: var(--ink); cursor: pointer;
+  display: grid; place-items: center;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+.tl-play:hover { background: rgba(255,255,255,0.12); }
+
+.tl-lanes { position: relative; flex: 1; min-width: 0; }
+.lane {
+  position: relative; height: 12px; margin: 4px 0;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.045);
+}
+.lane-fill {
+  position: absolute; top: 0; bottom: 0;
+  border-radius: 999px;
+  opacity: 0.92;
+}
+.lane-fill.agent { background: var(--agent); }
+.lane-fill.civ { background: var(--civ); }
+.lane-fill.victim { background: var(--victim); }
+
+.tl-scrub {
+  position: relative; height: 22px; margin-top: 8px;
+  cursor: pointer;
+}
+.tl-track {
+  position: absolute; left: 0; right: 0; top: 50%;
+  height: 4px; transform: translateY(-50%);
+  border-radius: 999px; background: rgba(255,255,255,0.14);
+}
+.tl-track-done {
+  position: absolute; left: 0; top: 50%;
+  height: 4px; transform: translateY(-50%);
+  border-radius: 999px; background: rgba(255,255,255,0.85);
+}
+.playhead {
+  position: absolute; top: -86px; bottom: -2px;
+  width: 1px; background: rgba(255,255,255,0.7);
+  pointer-events: none;
+}
+.playhead-knob {
+  position: absolute; left: 50%; bottom: 0;
+  width: 15px; height: 15px; border-radius: 999px;
+  transform: translate(-50%, 50%);
+  background: var(--ink);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.6);
+}
+
+/* ---------- map labels ---------- */
+.marker-letter {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.02em;
+}
+.victim-label {
+  fill: var(--victim); font-size: 11px; font-weight: 600; letter-spacing: 0.16em;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+/* ---------- top-right pill ---------- */
+.center-pill { top: 22px; right: 26px; }
+
+/* ---------- ALL ANGLES panel ---------- */
+.panel {
+  top: 92px; right: 24px; width: 374px;
+  max-height: calc(100vh - 92px - 142px);
+  display: flex; flex-direction: column;
+  border-radius: 18px;
+  background: var(--panel);
+  border: 1px solid var(--panel-stroke);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 24px 60px -30px rgba(0,0,0,0.8);
+  overflow: hidden;
+}
+.panel-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  padding: 18px 18px 15px; border-bottom: 1px solid var(--hairline);
+}
+.panel-kicker { font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); font-weight: 600; white-space: nowrap; }
+.panel-title { margin-top: 5px; font-size: 19px; font-weight: 500; color: var(--ink); letter-spacing: -0.01em; font-family: "Newsreader", Georgia, serif; }
+.panel-list { overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.panel-foot {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  padding: 12px 18px; border-top: 1px solid var(--hairline);
+  font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); white-space: nowrap;
+}
+.panel-live { color: var(--ink-dim); }
+
+.pcard {
+  position: relative; padding: 12px 12px 12px 15px;
+  border-radius: 13px; overflow: hidden;
+  background: rgba(255,255,255,0.022);
+  border: 1px solid transparent;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+.pcard.live { background: rgba(255,255,255,0.055); border-color: var(--panel-stroke); }
+.pcard-bar { position: absolute; left: 0; top: 11px; bottom: 11px; width: 3px; border-radius: 0 3px 3px 0; }
+.pcard-top { display: flex; align-items: center; gap: 11px; }
+.avatar {
+  width: 30px; height: 30px; border-radius: 999px; flex: none;
+  display: grid; place-items: center;
+  color: #161310; font-weight: 700; font-size: 13px;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+}
+.pcard-meta { flex: 1; min-width: 0; }
+.pcard-name { font-size: 13.5px; font-weight: 500; color: var(--ink); font-family: "IBM Plex Mono", ui-monospace, monospace; letter-spacing: -0.01em; }
+.pcard-sub { font-size: 11.5px; color: var(--muted); letter-spacing: 0.04em; margin-top: 1px; }
+.pcard-status { font-size: 10px; letter-spacing: 0.13em; font-weight: 600; flex: none; }
+.pcard-status.live { color: var(--accent); }
+.pcard-status.waiting, .pcard-status.ended { color: var(--muted); }
+
+.film {
+  position: relative; height: 30px; margin-top: 11px;
+  border-radius: 7px; overflow: hidden;
+  background: #1A1713; border: 1px solid var(--hairline);
+  display: flex; align-items: center;
+}
+.film-hatch { position: absolute; inset: 0; background: repeating-linear-gradient(115deg, rgba(255,255,255,0.05) 0 2px, transparent 2px 11px); }
+.film-accent { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; opacity: 0.85; }
+.film-tag { position: relative; margin-left: 13px; font-family: ui-monospace, monospace; font-size: 9.5px; letter-spacing: 0.2em; color: var(--muted); }
+
+/* ---------- timeline letters ---------- */
+.tl-letters {
+  display: flex; flex-direction: column;
+  align-self: stretch; padding-top: 4px;
+  font-family: ui-monospace, monospace; font-size: 11px; font-weight: 700;
+}
+.tl-letters span { height: 20px; display: flex; align-items: center; }
+
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script type="text/babel" data-presets="react">
+
+/* BEGIN USAGE */
+// tweaks-panel.jsx
+// Reusable Tweaks shell + form-control helpers.
+// Exports (to window): useTweaks, TweaksPanel, TweakSection, TweakRow, TweakSlider,
+//   TweakToggle, TweakRadio, TweakSelect, TweakText, TweakNumber, TweakColor, TweakButton.
+//
+// Owns the host protocol (listens for __activate_edit_mode / __deactivate_edit_mode,
+// posts __edit_mode_available / __edit_mode_set_keys / __edit_mode_dismissed) so
+// individual prototypes don't re-roll it. Ships a consistent set of controls so you
+// don't hand-draw <input type="range">, segmented radios, steppers, etc.
+//
+// Usage (in an HTML file that loads React + Babel):
+//
+//   const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+//     "primaryColor": "#D97757",
+//     "palette": ["#D97757", "#29261b", "#f6f4ef"],
+//     "fontSize": 16,
+//     "density": "regular",
+//     "dark": false
+//   }/*EDITMODE-END*/;
+//
+//   function App() {
+//     const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+//     return (
+//       <div style={{ fontSize: t.fontSize, color: t.primaryColor }}>
+//         Hello
+//         <TweaksPanel>
+//           <TweakSection label="Typography" />
+//           <TweakSlider label="Font size" value={t.fontSize} min={10} max={32} unit="px"
+//                        onChange={(v) => setTweak('fontSize', v)} />
+//           <TweakRadio  label="Density" value={t.density}
+//                        options={['compact', 'regular', 'comfy']}
+//                        onChange={(v) => setTweak('density', v)} />
+//           <TweakSection label="Theme" />
+//           <TweakColor  label="Primary" value={t.primaryColor}
+//                        options={['#D97757', '#2A6FDB', '#1F8A5B', '#7A5AE0']}
+//                        onChange={(v) => setTweak('primaryColor', v)} />
+//           <TweakColor  label="Palette" value={t.palette}
+//                        options={[['#D97757', '#29261b', '#f6f4ef'],
+//                                  ['#475569', '#0f172a', '#f1f5f9']]}
+//                        onChange={(v) => setTweak('palette', v)} />
+//           <TweakToggle label="Dark mode" value={t.dark}
+//                        onChange={(v) => setTweak('dark', v)} />
+//         </TweaksPanel>
+//       </div>
+//     );
+//   }
+//
+// TweakRadio is the segmented control for 2–3 short options (auto-falls-back to
+// TweakSelect past ~16/~10 chars per label); reach for TweakSelect directly when
+// options are many or long. For color tweaks always curate 3-4 options rather than
+// a free picker; an option can also be a whole 2–5 color palette (the stored value
+// is the array). The Tweak* controls are a floor, not a ceiling — build custom
+// controls inside the panel if a tweak calls for UI they don't cover.
+/* END USAGE */
+// ─────────────────────────────────────────────────────────────────────────────
+
+const __TWEAKS_STYLE = `
+  .twk-panel{position:fixed;right:16px;bottom:16px;z-index:2147483646;width:280px;
+    max-height:calc(100vh - 32px);display:flex;flex-direction:column;
+    transform:scale(var(--dc-inv-zoom,1));transform-origin:bottom right;
+    background:rgba(250,249,247,.78);color:#29261b;
+    -webkit-backdrop-filter:blur(24px) saturate(160%);backdrop-filter:blur(24px) saturate(160%);
+    border:.5px solid rgba(255,255,255,.6);border-radius:14px;
+    box-shadow:0 1px 0 rgba(255,255,255,.5) inset,0 12px 40px rgba(0,0,0,.18);
+    font:11.5px/1.4 ui-sans-serif,system-ui,-apple-system,sans-serif;overflow:hidden}
+  .twk-hd{display:flex;align-items:center;justify-content:space-between;
+    padding:10px 8px 10px 14px;cursor:move;user-select:none}
+  .twk-hd b{font-size:12px;font-weight:600;letter-spacing:.01em}
+  .twk-x{appearance:none;border:0;background:transparent;color:rgba(41,38,27,.55);
+    width:22px;height:22px;border-radius:6px;cursor:default;font-size:13px;line-height:1}
+  .twk-x:hover{background:rgba(0,0,0,.06);color:#29261b}
+  .twk-body{padding:2px 14px 14px;display:flex;flex-direction:column;gap:10px;
+    overflow-y:auto;overflow-x:hidden;min-height:0;
+    scrollbar-width:thin;scrollbar-color:rgba(0,0,0,.15) transparent}
+  .twk-body::-webkit-scrollbar{width:8px}
+  .twk-body::-webkit-scrollbar-track{background:transparent;margin:2px}
+  .twk-body::-webkit-scrollbar-thumb{background:rgba(0,0,0,.15);border-radius:4px;
+    border:2px solid transparent;background-clip:content-box}
+  .twk-body::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,.25);
+    border:2px solid transparent;background-clip:content-box}
+  .twk-row{display:flex;flex-direction:column;gap:5px}
+  .twk-row-h{flex-direction:row;align-items:center;justify-content:space-between;gap:10px}
+  .twk-lbl{display:flex;justify-content:space-between;align-items:baseline;
+    color:rgba(41,38,27,.72)}
+  .twk-lbl>span:first-child{font-weight:500}
+  .twk-val{color:rgba(41,38,27,.5);font-variant-numeric:tabular-nums}
+
+  .twk-sect{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+    color:rgba(41,38,27,.45);padding:10px 0 0}
+  .twk-sect:first-child{padding-top:0}
+
+  .twk-field{appearance:none;box-sizing:border-box;width:100%;min-width:0;height:26px;padding:0 8px;
+    border:.5px solid rgba(0,0,0,.1);border-radius:7px;
+    background:rgba(255,255,255,.6);color:inherit;font:inherit;outline:none}
+  .twk-field:focus{border-color:rgba(0,0,0,.25);background:rgba(255,255,255,.85)}
+  select.twk-field{padding-right:22px;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='rgba(0,0,0,.5)' d='M0 0h10L5 6z'/></svg>");
+    background-repeat:no-repeat;background-position:right 8px center}
+
+  .twk-slider{appearance:none;-webkit-appearance:none;width:100%;height:4px;margin:6px 0;
+    border-radius:999px;background:rgba(0,0,0,.12);outline:none}
+  .twk-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+    width:14px;height:14px;border-radius:50%;background:#fff;
+    border:.5px solid rgba(0,0,0,.12);box-shadow:0 1px 3px rgba(0,0,0,.2);cursor:default}
+  .twk-slider::-moz-range-thumb{width:14px;height:14px;border-radius:50%;
+    background:#fff;border:.5px solid rgba(0,0,0,.12);box-shadow:0 1px 3px rgba(0,0,0,.2);cursor:default}
+
+  .twk-seg{position:relative;display:flex;padding:2px;border-radius:8px;
+    background:rgba(0,0,0,.06);user-select:none}
+  .twk-seg-thumb{position:absolute;top:2px;bottom:2px;border-radius:6px;
+    background:rgba(255,255,255,.9);box-shadow:0 1px 2px rgba(0,0,0,.12);
+    transition:left .15s cubic-bezier(.3,.7,.4,1),width .15s}
+  .twk-seg.dragging .twk-seg-thumb{transition:none}
+  .twk-seg button{appearance:none;position:relative;z-index:1;flex:1;border:0;
+    background:transparent;color:inherit;font:inherit;font-weight:500;min-height:22px;
+    border-radius:6px;cursor:default;padding:4px 6px;line-height:1.2;
+    overflow-wrap:anywhere}
+
+  .twk-toggle{position:relative;width:32px;height:18px;border:0;border-radius:999px;
+    background:rgba(0,0,0,.15);transition:background .15s;cursor:default;padding:0}
+  .twk-toggle[data-on="1"]{background:#34c759}
+  .twk-toggle i{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;
+    background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s}
+  .twk-toggle[data-on="1"] i{transform:translateX(14px)}
+
+  .twk-num{display:flex;align-items:center;box-sizing:border-box;min-width:0;height:26px;padding:0 0 0 8px;
+    border:.5px solid rgba(0,0,0,.1);border-radius:7px;background:rgba(255,255,255,.6)}
+  .twk-num-lbl{font-weight:500;color:rgba(41,38,27,.6);cursor:ew-resize;
+    user-select:none;padding-right:8px}
+  .twk-num input{flex:1;min-width:0;height:100%;border:0;background:transparent;
+    font:inherit;font-variant-numeric:tabular-nums;text-align:right;padding:0 8px 0 0;
+    outline:none;color:inherit;-moz-appearance:textfield}
+  .twk-num input::-webkit-inner-spin-button,.twk-num input::-webkit-outer-spin-button{
+    -webkit-appearance:none;margin:0}
+  .twk-num-unit{padding-right:8px;color:rgba(41,38,27,.45)}
+
+  .twk-btn{appearance:none;height:26px;padding:0 12px;border:0;border-radius:7px;
+    background:rgba(0,0,0,.78);color:#fff;font:inherit;font-weight:500;cursor:default}
+  .twk-btn:hover{background:rgba(0,0,0,.88)}
+  .twk-btn.secondary{background:rgba(0,0,0,.06);color:inherit}
+  .twk-btn.secondary:hover{background:rgba(0,0,0,.1)}
+
+  .twk-swatch{appearance:none;-webkit-appearance:none;width:56px;height:22px;
+    border:.5px solid rgba(0,0,0,.1);border-radius:6px;padding:0;cursor:default;
+    background:transparent;flex-shrink:0}
+  .twk-swatch::-webkit-color-swatch-wrapper{padding:0}
+  .twk-swatch::-webkit-color-swatch{border:0;border-radius:5.5px}
+  .twk-swatch::-moz-color-swatch{border:0;border-radius:5.5px}
+
+  .twk-chips{display:flex;gap:6px}
+  .twk-chip{position:relative;appearance:none;flex:1;min-width:0;height:46px;
+    padding:0;border:0;border-radius:6px;overflow:hidden;cursor:default;
+    box-shadow:0 0 0 .5px rgba(0,0,0,.12),0 1px 2px rgba(0,0,0,.06);
+    transition:transform .12s cubic-bezier(.3,.7,.4,1),box-shadow .12s}
+  .twk-chip:hover{transform:translateY(-1px);
+    box-shadow:0 0 0 .5px rgba(0,0,0,.18),0 4px 10px rgba(0,0,0,.12)}
+  .twk-chip[data-on="1"]{box-shadow:0 0 0 1.5px rgba(0,0,0,.85),
+    0 2px 6px rgba(0,0,0,.15)}
+  .twk-chip>span{position:absolute;top:0;bottom:0;right:0;width:34%;
+    display:flex;flex-direction:column;box-shadow:-1px 0 0 rgba(0,0,0,.1)}
+  .twk-chip>span>i{flex:1;box-shadow:0 -1px 0 rgba(0,0,0,.1)}
+  .twk-chip>span>i:first-child{box-shadow:none}
+  .twk-chip svg{position:absolute;top:6px;left:6px;width:13px;height:13px;
+    filter:drop-shadow(0 1px 1px rgba(0,0,0,.3))}
+`;
+
+// ── useTweaks ───────────────────────────────────────────────────────────────
+// Single source of truth for tweak values. setTweak persists via the host
+// (__edit_mode_set_keys → host rewrites the EDITMODE block on disk).
+function useTweaks(defaults) {
+  const [values, setValues] = React.useState(defaults);
+  // Accepts either setTweak('key', value) or setTweak({ key: value, ... }) so a
+  // useState-style call doesn't write a "[object Object]" key into the persisted
+  // JSON block.
+  const setTweak = React.useCallback((keyOrEdits, val) => {
+    const edits = typeof keyOrEdits === 'object' && keyOrEdits !== null
+      ? keyOrEdits : { [keyOrEdits]: val };
+    setValues((prev) => ({ ...prev, ...edits }));
+    window.parent.postMessage({ type: '__edit_mode_set_keys', edits }, '*');
+    // Same-window signal so in-page listeners (deck-stage rail thumbnails)
+    // can react — the parent message only reaches the host, not peers.
+    window.dispatchEvent(new CustomEvent('tweakchange', { detail: edits }));
+  }, []);
+  return [values, setTweak];
+}
+
+// ── TweaksPanel ─────────────────────────────────────────────────────────────
+// Floating shell. Registers the protocol listener BEFORE announcing
+// availability — if the announce ran first, the host's activate could land
+// before our handler exists and the toolbar toggle would silently no-op.
+// The close button posts __edit_mode_dismissed so the host's toolbar toggle
+// flips off in lockstep; the host echoes __deactivate_edit_mode back which
+// is what actually hides the panel.
+function TweaksPanel({ title = 'Tweaks', children }) {
+  const [open, setOpen] = React.useState(false);
+  const dragRef = React.useRef(null);
+  const offsetRef = React.useRef({ x: 16, y: 16 });
+  const PAD = 16;
+
+  const clampToViewport = React.useCallback(() => {
+    const panel = dragRef.current;
+    if (!panel) return;
+    const w = panel.offsetWidth, h = panel.offsetHeight;
+    const maxRight = Math.max(PAD, window.innerWidth - w - PAD);
+    const maxBottom = Math.max(PAD, window.innerHeight - h - PAD);
+    offsetRef.current = {
+      x: Math.min(maxRight, Math.max(PAD, offsetRef.current.x)),
+      y: Math.min(maxBottom, Math.max(PAD, offsetRef.current.y)),
+    };
+    panel.style.right = offsetRef.current.x + 'px';
+    panel.style.bottom = offsetRef.current.y + 'px';
+  }, []);
+
+  React.useEffect(() => {
+    if (!open) return;
+    clampToViewport();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', clampToViewport);
+      return () => window.removeEventListener('resize', clampToViewport);
+    }
+    const ro = new ResizeObserver(clampToViewport);
+    ro.observe(document.documentElement);
+    return () => ro.disconnect();
+  }, [open, clampToViewport]);
+
+  React.useEffect(() => {
+    const onMsg = (e) => {
+      const t = e?.data?.type;
+      if (t === '__activate_edit_mode') setOpen(true);
+      else if (t === '__deactivate_edit_mode') setOpen(false);
+    };
+    window.addEventListener('message', onMsg);
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+    return () => window.removeEventListener('message', onMsg);
+  }, []);
+
+  const dismiss = () => {
+    setOpen(false);
+    window.parent.postMessage({ type: '__edit_mode_dismissed' }, '*');
+  };
+
+  const onDragStart = (e) => {
+    const panel = dragRef.current;
+    if (!panel) return;
+    const r = panel.getBoundingClientRect();
+    const sx = e.clientX, sy = e.clientY;
+    const startRight = window.innerWidth - r.right;
+    const startBottom = window.innerHeight - r.bottom;
+    const move = (ev) => {
+      offsetRef.current = {
+        x: startRight - (ev.clientX - sx),
+        y: startBottom - (ev.clientY - sy),
+      };
+      clampToViewport();
+    };
+    const up = () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  };
+
+  if (!open) return null;
+  return (
+    <>
+      <style>{__TWEAKS_STYLE}</style>
+      <div ref={dragRef} className="twk-panel" data-omelette-chrome=""
+           style={{ right: offsetRef.current.x, bottom: offsetRef.current.y }}>
+        <div className="twk-hd" onMouseDown={onDragStart}>
+          <b>{title}</b>
+          <button className="twk-x" aria-label="Close tweaks"
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={dismiss}>✕</button>
+        </div>
+        <div className="twk-body">
+          {children}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Layout helpers ──────────────────────────────────────────────────────────
+
+function TweakSection({ label, children }) {
+  return (
+    <>
+      <div className="twk-sect">{label}</div>
+      {children}
+    </>
+  );
+}
+
+function TweakRow({ label, value, children, inline = false }) {
+  return (
+    <div className={inline ? 'twk-row twk-row-h' : 'twk-row'}>
+      <div className="twk-lbl">
+        <span>{label}</span>
+        {value != null && <span className="twk-val">{value}</span>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+// ── Controls ────────────────────────────────────────────────────────────────
+
+function TweakSlider({ label, value, min = 0, max = 100, step = 1, unit = '', onChange }) {
+  return (
+    <TweakRow label={label} value={`${value}${unit}`}>
+      <input type="range" className="twk-slider" min={min} max={max} step={step}
+             value={value} onChange={(e) => onChange(Number(e.target.value))} />
+    </TweakRow>
+  );
+}
+
+function TweakToggle({ label, value, onChange }) {
+  return (
+    <div className="twk-row twk-row-h">
+      <div className="twk-lbl"><span>{label}</span></div>
+      <button type="button" className="twk-toggle" data-on={value ? '1' : '0'}
+              role="switch" aria-checked={!!value}
+              onClick={() => onChange(!value)}><i /></button>
+    </div>
+  );
+}
+
+function TweakRadio({ label, value, options, onChange }) {
+  const trackRef = React.useRef(null);
+  const [dragging, setDragging] = React.useState(false);
+  // The active value is read by pointer-move handlers attached for the lifetime
+  // of a drag — ref it so a stale closure doesn't fire onChange for every move.
+  const valueRef = React.useRef(value);
+  valueRef.current = value;
+
+  // Segments wrap mid-word once per-segment width runs out. The track is
+  // ~248px (280 panel − 28 body pad − 4 seg pad), each button loses 12px
+  // to its own padding, and 11.5px system-ui averages ~6.3px/char — so 2
+  // options fit ~16 chars each, 3 fit ~10. Past that (or >3 options), fall
+  // back to a dropdown rather than wrap.
+  const labelLen = (o) => String(typeof o === 'object' ? o.label : o).length;
+  const maxLen = options.reduce((m, o) => Math.max(m, labelLen(o)), 0);
+  const fitsAsSegments = maxLen <= ({ 2: 16, 3: 10 }[options.length] ?? 0);
+  if (!fitsAsSegments) {
+    // <select> emits strings — map back to the original option value so the
+    // fallback stays type-preserving (numbers, booleans) like the segment path.
+    const resolve = (s) => {
+      const m = options.find((o) => String(typeof o === 'object' ? o.value : o) === s);
+      return m === undefined ? s : typeof m === 'object' ? m.value : m;
+    };
+    return <TweakSelect label={label} value={value} options={options}
+                        onChange={(s) => onChange(resolve(s))} />;
+  }
+  const opts = options.map((o) => (typeof o === 'object' ? o : { value: o, label: o }));
+  const idx = Math.max(0, opts.findIndex((o) => o.value === value));
+  const n = opts.length;
+
+  const segAt = (clientX) => {
+    const r = trackRef.current.getBoundingClientRect();
+    const inner = r.width - 4;
+    const i = Math.floor(((clientX - r.left - 2) / inner) * n);
+    return opts[Math.max(0, Math.min(n - 1, i))].value;
+  };
+
+  const onPointerDown = (e) => {
+    setDragging(true);
+    const v0 = segAt(e.clientX);
+    if (v0 !== valueRef.current) onChange(v0);
+    const move = (ev) => {
+      if (!trackRef.current) return;
+      const v = segAt(ev.clientX);
+      if (v !== valueRef.current) onChange(v);
+    };
+    const up = () => {
+      setDragging(false);
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+
+  return (
+    <TweakRow label={label}>
+      <div ref={trackRef} role="radiogroup" onPointerDown={onPointerDown}
+           className={dragging ? 'twk-seg dragging' : 'twk-seg'}>
+        <div className="twk-seg-thumb"
+             style={{ left: `calc(2px + ${idx} * (100% - 4px) / ${n})`,
+                      width: `calc((100% - 4px) / ${n})` }} />
+        {opts.map((o) => (
+          <button key={o.value} type="button" role="radio" aria-checked={o.value === value}>
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </TweakRow>
+  );
+}
+
+function TweakSelect({ label, value, options, onChange }) {
+  return (
+    <TweakRow label={label}>
+      <select className="twk-field" value={value} onChange={(e) => onChange(e.target.value)}>
+        {options.map((o) => {
+          const v = typeof o === 'object' ? o.value : o;
+          const l = typeof o === 'object' ? o.label : o;
+          return <option key={v} value={v}>{l}</option>;
+        })}
+      </select>
+    </TweakRow>
+  );
+}
+
+function TweakText({ label, value, placeholder, onChange }) {
+  return (
+    <TweakRow label={label}>
+      <input className="twk-field" type="text" value={value} placeholder={placeholder}
+             onChange={(e) => onChange(e.target.value)} />
+    </TweakRow>
+  );
+}
+
+function TweakNumber({ label, value, min, max, step = 1, unit = '', onChange }) {
+  const clamp = (n) => {
+    if (min != null && n < min) return min;
+    if (max != null && n > max) return max;
+    return n;
+  };
+  const startRef = React.useRef({ x: 0, val: 0 });
+  const onScrubStart = (e) => {
+    e.preventDefault();
+    startRef.current = { x: e.clientX, val: value };
+    const decimals = (String(step).split('.')[1] || '').length;
+    const move = (ev) => {
+      const dx = ev.clientX - startRef.current.x;
+      const raw = startRef.current.val + dx * step;
+      const snapped = Math.round(raw / step) * step;
+      onChange(clamp(Number(snapped.toFixed(decimals))));
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+  return (
+    <div className="twk-num">
+      <span className="twk-num-lbl" onPointerDown={onScrubStart}>{label}</span>
+      <input type="number" value={value} min={min} max={max} step={step}
+             onChange={(e) => onChange(clamp(Number(e.target.value)))} />
+      {unit && <span className="twk-num-unit">{unit}</span>}
+    </div>
+  );
+}
+
+// Relative-luminance contrast pick — checkmarks drawn over a swatch need to
+// read on both #111 and #fafafa without per-option configuration. Hex input
+// only (#rgb / #rrggbb); named or rgb()/hsl() colors fall through to "light".
+function __twkIsLight(hex) {
+  const h = String(hex).replace('#', '');
+  const x = h.length === 3 ? h.replace(/./g, (c) => c + c) : h.padEnd(6, '0');
+  const n = parseInt(x.slice(0, 6), 16);
+  if (Number.isNaN(n)) return true;
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  return r * 299 + g * 587 + b * 114 > 148000;
+}
+
+const __TwkCheck = ({ light }) => (
+  <svg viewBox="0 0 14 14" aria-hidden="true">
+    <path d="M3 7.2 5.8 10 11 4.2" fill="none" strokeWidth="2.2"
+          strokeLinecap="round" strokeLinejoin="round"
+          stroke={light ? 'rgba(0,0,0,.78)' : '#fff'} />
+  </svg>
+);
+
+// TweakColor — curated color/palette picker. Each option is either a single
+// hex string or an array of 1-5 hex strings; the card adapts — a lone color
+// renders solid, a palette renders colors[0] as the hero (left ~2/3) with the
+// rest stacked in a sharp column on the right. onChange emits the
+// option in the shape it was passed (string stays string, array stays array).
+// Without options it falls back to the native color input for back-compat.
+function TweakColor({ label, value, options, onChange }) {
+  if (!options || !options.length) {
+    return (
+      <div className="twk-row twk-row-h">
+        <div className="twk-lbl"><span>{label}</span></div>
+        <input type="color" className="twk-swatch" value={value}
+               onChange={(e) => onChange(e.target.value)} />
+      </div>
+    );
+  }
+  // Native <input type=color> emits lowercase hex per the HTML spec, so
+  // compare case-insensitively. String() guards JSON.stringify(undefined),
+  // which returns the primitive undefined (no .toLowerCase).
+  const key = (o) => String(JSON.stringify(o)).toLowerCase();
+  const cur = key(value);
+  return (
+    <TweakRow label={label}>
+      <div className="twk-chips" role="radiogroup">
+        {options.map((o, i) => {
+          const colors = Array.isArray(o) ? o : [o];
+          const [hero, ...rest] = colors;
+          const sup = rest.slice(0, 4);
+          const on = key(o) === cur;
+          return (
+            <button key={i} type="button" className="twk-chip" role="radio"
+                    aria-checked={on} data-on={on ? '1' : '0'}
+                    aria-label={colors.join(', ')} title={colors.join(' · ')}
+                    style={{ background: hero }}
+                    onClick={() => onChange(o)}>
+              {sup.length > 0 && (
+                <span>
+                  {sup.map((c, j) => <i key={j} style={{ background: c }} />)}
+                </span>
+              )}
+              {on && <__TwkCheck light={__twkIsLight(hero)} />}
+            </button>
+          );
+        })}
+      </div>
+    </TweakRow>
+  );
+}
+
+function TweakButton({ label, onClick, secondary = false }) {
+  return (
+    <button type="button" className={secondary ? 'twk-btn secondary' : 'twk-btn'}
+            onClick={onClick}>{label}</button>
+  );
+}
+
+Object.assign(window, {
+  useTweaks, TweaksPanel, TweakSection, TweakRow,
+  TweakSlider, TweakToggle, TweakRadio, TweakSelect,
+  TweakText, TweakNumber, TweakColor, TweakButton,
+});
+
+  </script>
+  <script type="text/babel" data-presets="react">
+/* reconstruction.jsx — basemap, perspectives (A–E), view cones, helpers.
+   Model: 5 equal camera perspectives, each with its own curated colour. */
+
+const VB = { w: 1200, h: 800 };
+const DURATION = 120; // seconds  (09:00:00 → 09:02:00)
+const VICTIM = { x: 662, y: 402 };
+
+// ---- single-colour themes (one hue, subtle shade ramp = unified, not rainbow) ----
+const PALETTE_LIST = [
+  { key: "teal",     label: "Petrol (brand)", colors: ["#bfe6df", "#97d3c8", "#6FBDB0", "#52a597", "#3f8a7d"] },
+  { key: "platinum", label: "Platinum", colors: ["#eef0ec", "#d6dad2", "#bcc2b8", "#a3ab9e", "#8a9486"] },
+  { key: "azure",    label: "Azure",    colors: ["#a9c8f5", "#8eb4ef", "#74a0e6", "#5d8edb", "#4b7dc9"] },
+  { key: "amber",    label: "Amber",    colors: ["#f0d493", "#ecc36a", "#e6b257", "#d8a046", "#c68e3b"] },
+];
+function paletteByKey(k) { return (PALETTE_LIST.find((p) => p.key === k) || PALETTE_LIST[0]).colors; }
+
+// ---- the five perspectives (uploaded from contributor accounts) ----
+const PERSPECTIVES = [
+  { id: "A", initial: "M", handle: "@marisol.vega", device: "iPhone 14 · vertical", x: 524, y: 258, face: 46,  half: 23, r: 150, win: [2, 120] },
+  { id: "B", initial: "D", handle: "@deshawn_k",    device: "Pixel 7 · handheld",  x: 470, y: 476, face: -18, half: 22, r: 138, win: [30, 114] },
+  { id: "C", initial: "R", handle: "@rfuentes.mn",  device: "Dashcam · forward",   x: 842, y: 300, face: 152, half: 23, r: 150, win: [26, 74] },
+  { id: "D", initial: "A", handle: "@a.nordstrom",  device: "Bodycam · clip-on",   x: 566, y: 360, face: 22,  half: 21, r: 132, win: [30, 86] },
+  { id: "E", initial: "J", handle: "@jjokafor",     device: "Transit cam · fixed", x: 858, y: 504, face: 207, half: 22, r: 138, win: [52, 84] },
+];
+
+// ---- helpers ----
+function sector(cx, cy, faceDeg, halfDeg, r) {
+  const a0 = ((faceDeg - halfDeg) * Math.PI) / 180;
+  const a1 = ((faceDeg + halfDeg) * Math.PI) / 180;
+  const x0 = cx + r * Math.cos(a0), y0 = cy + r * Math.sin(a0);
+  const x1 = cx + r * Math.cos(a1), y1 = cy + r * Math.sin(a1);
+  return `M${cx} ${cy} L${x0.toFixed(1)} ${y0.toFixed(1)} A ${r} ${r} 0 0 1 ${x1.toFixed(1)} ${y1.toFixed(1)} Z`;
+}
+function fmtClock(sec) {
+  const m = Math.floor(sec / 60), s = Math.floor(sec % 60);
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+function statusAt(win, t) {
+  if (t < win[0]) return "waiting";
+  if (t > win[1]) return "ended";
+  return "live";
+}
+function activeAlpha(win, t) {
+  const fade = 4;
+  if (t <= win[0] - fade || t >= win[1] + fade) return 0;
+  let a = 1;
+  if (t < win[0]) a = (t - (win[0] - fade)) / fade;
+  if (t > win[1]) a = ((win[1] + fade) - t) / fade;
+  return Math.max(0, Math.min(1, a));
+}
+
+// ---- basemap ----
+function Basemap() {
+  return (
+    <g>
+      <g opacity="0.9">
+        <rect className="blk" x="120" y="120" width="300" height="190" rx="3" />
+        <rect className="blk-2" x="120" y="340" width="300" height="150" rx="3" />
+        <rect className="blk" x="120" y="520" width="300" height="210" rx="3" />
+        <rect className="blk-2" x="690" y="120" width="250" height="190" rx="3" />
+        <rect className="blk" x="690" y="470" width="250" height="120" rx="3" />
+        <rect className="blk-2" x="980" y="150" width="180" height="220" rx="3" />
+        <rect className="blk" x="980" y="430" width="180" height="300" rx="3" />
+        <rect className="blk-2" x="430" y="600" width="200" height="130" rx="3" />
+      </g>
+      <g>
+        <line className="road-major" x1="650" y1="-40" x2="650" y2="840" strokeWidth="74" />
+        <line className="road" x1="958" y1="-40" x2="958" y2="840" strokeWidth="52" />
+        <line className="road" x1="-40" y1="612" x2="1240" y2="612" strokeWidth="52" />
+        <line className="road" x1="-40" y1="96" x2="1240" y2="96" strokeWidth="44" />
+      </g>
+      <g>
+        <line className="lane-dash" x1="650" y1="-40" x2="650" y2="840" />
+        <line className="lane-dash" x1="958" y1="-40" x2="958" y2="840" />
+        <line className="lane-dash" x1="-40" y1="612" x2="1240" y2="612" />
+      </g>
+      <text className="street-label" x="636" y="250" transform="rotate(-90 636 250)">NICOLLET AVENUE</text>
+      <text className="street-label" x="944" y="690" transform="rotate(-90 944 690)">1ST AVENUE</text>
+      <text className="street-label" x="250" y="600">7TH STREET</text>
+    </g>
+  );
+}
+
+// ---- one perspective (cone + lettered marker) ----
+function Perspective({ p, color, t, showCones }) {
+  const alpha = activeAlpha(p.win, t);
+  const st = statusAt(p.win, t);
+  const live = st === "live";
+  const dim = live ? 1 : 0.45;
+  if (alpha <= 0 && !live) {
+    // keep faint marker even when out of window so the scene stays legible
+  }
+  const sweep = Math.sin((t + p.x) / 14) * 4;
+  const face = p.face + sweep;
+
+  return (
+    <g className="actor" style={{ opacity: live ? 1 : 0.5 }}>
+      {showCones && (
+        <g style={{ opacity: live ? 1 : 0.4 }}>
+          <path d={sector(p.x, p.y, face, p.half, p.r)} fill={color} fillOpacity={live ? 0.14 : 0.07} />
+          <path d={sector(p.x, p.y, face, p.half, p.r * 0.6)} fill={color} fillOpacity={live ? 0.16 : 0.07} />
+          <path d={sector(p.x, p.y, face, p.half, p.r)} fill="none" stroke={color} strokeWidth="1" opacity={live ? 0.55 : 0.25} />
+        </g>
+      )}
+      {live && <circle cx={p.x} cy={p.y} r="22" fill="none" stroke={color} strokeWidth="1.4" className="dot-pulse" />}
+      <circle cx={p.x} cy={p.y} r="14" fill={live ? color : "#221F1B"} stroke={color} strokeWidth="1.8" />
+      <text x={p.x} y={p.y + 4} textAnchor="middle" className="marker-letter"
+            fill={live ? "#161310" : color} style={{ opacity: dim }}>{p.initial}</text>
+    </g>
+  );
+}
+
+window.Reconstruction = {
+  VB, DURATION, VICTIM, PALETTE_LIST, paletteByKey, PERSPECTIVES,
+  sector, fmtClock, statusAt, activeAlpha, Basemap, Perspective,
+};
+
+  </script>
+  <script type="text/babel" data-presets="react">
+/* app.jsx — App shell: map, ALL ANGLES panel, synced timeline, tweaks. */
+
+const { useState, useEffect, useRef, useCallback } = React;
+const R = window.Reconstruction;
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "palette": "teal",
+  "headline": "serif",
+  "showCones": true,
+  "showPanel": true
+}/*EDITMODE-END*/;
+
+function Icon({ name }) {
+  if (name === "center") return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+      <circle cx="12" cy="12" r="3.2" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" strokeLinecap="round" />
+      <path d="M5 5l2 2M19 5l-2 2M5 19l2-2M19 19l-2-2" strokeLinecap="round" opacity="0.6" />
+    </svg>
+  );
+  if (name === "eye") return (
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+      <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+  if (name === "eye-off") return (
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+      <path d="M2 12s3.6-7 10-7c1.6 0 3 .4 4.3 1M22 12s-3.6 7-10 7c-1.6 0-3-.4-4.3-1" />
+      <path d="M3 3l18 18" strokeLinecap="round" />
+    </svg>
+  );
+  if (name === "play") return (<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z" /></svg>);
+  if (name === "pause") return (<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4.5" width="4.2" height="15" rx="1" /><rect x="13.8" y="4.5" width="4.2" height="15" rx="1" /></svg>);
+  return null;
+}
+
+// filmstrip placeholder (user drops real footage here)
+function Filmstrip({ color, live }) {
+  return (
+    <div className="film" style={{ opacity: live ? 1 : 0.4 }}>
+      <div className="film-hatch" />
+      <div className="film-accent" style={{ background: color }} />
+      <span className="film-tag">NO SIGNAL FEED</span>
+    </div>
+  );
+}
+
+function PerspectiveCard({ p, color, status }) {
+  const live = status === "live";
+  return (
+    <div className={`pcard ${live ? "live" : ""}`}>
+      <div className="pcard-bar" style={{ background: live ? color : "transparent" }} />
+      <div className="pcard-top">
+        <div className="avatar" style={{ background: color }}>{p.initial}</div>
+        <div className="pcard-meta">
+          <div className="pcard-name">{p.handle}</div>
+          <div className="pcard-sub">{p.device}</div>
+        </div>
+        <div className={`pcard-status ${status}`}>
+          {status === "live" ? "● LIVE" : status === "waiting" ? "WAITING" : "ENDED"}
+        </div>
+      </div>
+      <Filmstrip color={color} live={live} />
+    </div>
+  );
+}
+
+function App() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const [time, setTime] = useState(48);
+  const [playing, setPlaying] = useState(false);
+  const [view, setView] = useState({ scale: 1, tx: 0, ty: 0 });
+
+  const colors = R.paletteByKey(t.palette);
+  const colorOf = (i) => colors[i % colors.length];
+
+  useEffect(() => { document.documentElement.style.setProperty("--accent", colors[2] || colors[0]); }, [t.palette]);
+
+  const svgRef = useRef(null);
+  const rafRef = useRef(0);
+  const lastRef = useRef(0);
+
+  // playback
+  useEffect(() => {
+    if (!playing) return;
+    lastRef.current = performance.now();
+    const tick = (now) => {
+      const dt = (now - lastRef.current) / 1000;
+      lastRef.current = now;
+      setTime((prev) => {
+        const next = prev + dt * 8;
+        if (next >= R.DURATION) { setPlaying(false); return R.DURATION; }
+        return next;
+      });
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [playing]);
+
+  const recenter = useCallback(() => setView({ scale: 1, tx: 0, ty: 0 }), []);
+  const zoom = useCallback((dir) => setView((v) => ({ ...v, scale: Math.max(0.6, Math.min(3, v.scale * (dir > 0 ? 1.25 : 0.8))) })), []);
+
+  // pan
+  const panRef = useRef(null);
+  const onDown = (e) => { panRef.current = { x: e.clientX, y: e.clientY, tx: view.tx, ty: view.ty }; svgRef.current.classList.add("dragging"); svgRef.current.setPointerCapture(e.pointerId); };
+  const onMove = (e) => {
+    if (!panRef.current) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    const f = R.VB.w / rect.width;
+    setView((v) => ({ ...v, tx: panRef.current.tx + (e.clientX - panRef.current.x) * f, ty: panRef.current.ty + (e.clientY - panRef.current.y) * f }));
+  };
+  const onUp = () => { panRef.current = null; svgRef.current && svgRef.current.classList.remove("dragging"); };
+
+  const cx = R.VB.w / 2, cy = R.VB.h / 2;
+  const worldT = `translate(${(cx * (1 - view.scale) + view.tx).toFixed(2)} ${(cy * (1 - view.scale) + view.ty).toFixed(2)}) scale(${view.scale})`;
+
+  // scrub
+  const scrubRef = useRef(null);
+  const scrubTo = (clientX) => { const r = scrubRef.current.getBoundingClientRect(); const p = Math.max(0, Math.min(1, (clientX - r.left) / r.width)); setTime(p * R.DURATION); };
+  const onScrubDown = (e) => { setPlaying(false); scrubRef.current.setPointerCapture(e.pointerId); scrubRef.current._drag = true; scrubTo(e.clientX); };
+  const onScrubMove = (e) => { if (scrubRef.current && scrubRef.current._drag) scrubTo(e.clientX); };
+  const onScrubUp = () => { if (scrubRef.current) scrubRef.current._drag = false; };
+
+  const pct = (time / R.DURATION) * 100;
+  const liveCount = R.PERSPECTIVES.filter((p) => R.statusAt(p.win, time) === "live").length;
+  const trust = Math.min(0.98, 0.52 + liveCount * 0.088);
+
+  return (
+    <div className="stage">
+      <svg ref={svgRef} className="map-svg" viewBox={`0 0 ${R.VB.w} ${R.VB.h}`} preserveAspectRatio="xMidYMid slice"
+           onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={onUp}>
+        <rect x="-200" y="-200" width={R.VB.w + 400} height={R.VB.h + 400} fill="var(--map-void)" />
+        <g transform={worldT}>
+          <R.Basemap />
+          {/* incident / victim focus */}
+          <circle cx={R.VICTIM.x} cy={R.VICTIM.y} r="20" fill="none" stroke="var(--victim)" strokeWidth="1.2" className="dot-pulse" />
+          <circle cx={R.VICTIM.x} cy={R.VICTIM.y} r="6.5" fill="var(--victim)" />
+          <circle cx={R.VICTIM.x} cy={R.VICTIM.y} r="2.4" fill="#161310" />
+          <text x={R.VICTIM.x + 18} y={R.VICTIM.y + 4} className="victim-label">A. PRETTI</text>
+          {R.PERSPECTIVES.map((p, i) => (
+            <R.Perspective key={p.id} p={p} color={colorOf(i)} t={time} showCones={t.showCones} />
+          ))}
+        </g>
+      </svg>
+
+      {/* masthead */}
+      <div className="hud topbar">
+        <div className="eyebrow mono">
+          OpenEyes<span className="sep"></span>Verified Event<span className="dim">· MPLS-0419</span>
+        </div>
+        <h1 className={`headline ${t.headline === "grotesk" ? "grotesk" : "serif"}`}>
+          {t.headline === "grotesk"
+            ? <>Five angles. <em>One</em> truth.</>
+            : <>The killing of Alex&nbsp;Pretti, <em>corroborated</em>.</>}
+        </h1>
+        <div className="dateline mono">
+          <span>MINNEAPOLIS · NICOLLET AVE</span><span className="dot"></span>
+          <span>09:00 CDT</span><span className="dot"></span>
+          <span>{liveCount} of {R.PERSPECTIVES.length} angles live</span>
+        </div>
+        <div className="trust">
+          <div className="trust-num serif">{trust.toFixed(2)}</div>
+          <div className="trust-meta">
+            <div className="trust-label mono">Trust index · corroboration</div>
+            <div className="trust-bars">
+              {R.PERSPECTIVES.map((p, i) => (
+                <i key={p.id} className={R.statusAt(p.win, time) === "live" ? "" : "off"}></i>
+              ))}
+            </div>
+            <div className="trust-sub">{liveCount} independent sources · audio-synced · no tampering</div>
+          </div>
+        </div>
+      </div>
+
+      {/* top-right controls */}
+      <button className="hud pill center-pill" onClick={recenter}><Icon name="center" />Center again</button>
+
+      {/* ALL ANGLES panel */}
+      {t.showPanel && (
+        <div className="hud panel">
+          <div className="panel-head">
+            <div>
+              <div className="panel-kicker">All angles</div>
+              <div className="panel-title">{R.PERSPECTIVES.length} perspectives</div>
+            </div>
+            <button className={`icon-btn ${t.showCones ? "active" : ""}`} title="Toggle sightlines"
+                    onClick={() => setTweak("showCones", !t.showCones)}>
+              <Icon name={t.showCones ? "eye" : "eye-off"} />
+            </button>
+          </div>
+          <div className="panel-list">
+            {R.PERSPECTIVES.map((p, i) => (
+              <PerspectiveCard key={p.id} p={p} color={colorOf(i)} status={R.statusAt(p.win, time)} />
+            ))}
+          </div>
+          <div className="panel-foot">
+            <span>Synced to timeline</span>
+            <span className="panel-live">{liveCount} live</span>
+          </div>
+        </div>
+      )}
+
+      {/* zoom */}
+      <div className="hud zoom">
+        <button onClick={() => zoom(1)}>+</button>
+        <button onClick={() => zoom(-1)}>−</button>
+      </div>
+
+      {/* scale */}
+      <div className="hud scalebar"><span>5 m</span><div className="bar" /></div>
+
+      {/* timeline */}
+      <div className="hud timeline" style={{ right: t.showPanel ? 412 : 24 }}>
+        <div className="tl-head">
+          <span className="tl-end">09:00 AM</span>
+          <span className="tl-now">{R.fmtClock(time)}</span>
+          <span className="tl-end">09:02 AM</span>
+        </div>
+        <div className="tl-body">
+          <button className="tl-play" onClick={() => setPlaying((p) => !p)}><Icon name={playing ? "pause" : "play"} /></button>
+          <div className="tl-letters">
+            {R.PERSPECTIVES.map((p, i) => (
+              <span key={p.id} style={{ color: colorOf(i), opacity: R.statusAt(p.win, time) === "live" ? 1 : 0.5 }}>{p.initial}</span>
+            ))}
+          </div>
+          <div className="tl-lanes">
+            {R.PERSPECTIVES.map((p, i) => {
+              const left = (p.win[0] / R.DURATION) * 100;
+              const w = ((p.win[1] - p.win[0]) / R.DURATION) * 100;
+              const live = R.statusAt(p.win, time) === "live";
+              return (
+                <div className="lane" key={p.id}>
+                  <div className="lane-fill" style={{ left: `${left}%`, width: `${w}%`, background: colorOf(i), opacity: live ? 0.95 : 0.5 }} />
+                </div>
+              );
+            })}
+            <div className="tl-scrub" ref={scrubRef} onPointerDown={onScrubDown} onPointerMove={onScrubMove} onPointerUp={onScrubUp}>
+              <div className="tl-track" />
+              <div className="tl-track-done" style={{ width: `${pct}%` }} />
+            </div>
+            <div className="playhead" style={{ left: `${pct}%` }}><div className="playhead-knob" /></div>
+          </div>
+        </div>
+      </div>
+
+      {/* tweaks */}
+      <TweaksPanel>
+        <TweakSection label="Editorial" />
+        <TweakRadio label="Headline" value={t.headline}
+          options={["serif", "grotesk"]}
+          onChange={(v) => setTweak("headline", v)} />
+        <TweakSection label="Perspective colour" />
+        <TweakSelect label="Single colour" value={t.palette}
+          options={R.PALETTE_LIST.map((p) => ({ value: p.key, label: p.label }))}
+          onChange={(v) => setTweak("palette", v)} />
+        <TweakSection label="Overlay" />
+        <TweakToggle label="Sightline cones" value={t.showCones} onChange={(v) => setTweak("showCones", v)} />
+        <TweakToggle label="Angles panel" value={t.showPanel} onChange={(v) => setTweak("showPanel", v)} />
+      </TweaksPanel>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+
+  </script>
+</body>
+</html>
