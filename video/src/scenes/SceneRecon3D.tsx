@@ -19,8 +19,27 @@ import { reveal, blurInStyle, outAt } from "../lib/anim";
  * Loads the REAL reconstruction (services/recon3d/viewer/scene.glb): a 600k-point
  * colored cloud + camera frustums. Centred, point-sized, returned as a group.
  */
-function useReconScene() {
-  const [scene, setScene] = useState<THREE.Group | null>(null);
+/** Boost the (dark, street-coloured) vertex colours so the cloud reads on ink. */
+function boostColors(geom: THREE.BufferGeometry, mul: number, lift: number) {
+  const c = geom.getAttribute("color") as THREE.BufferAttribute | undefined;
+  if (!c) return;
+  const a = c.array as unknown as Float32Array | Uint8Array;
+  const isByte = a instanceof Uint8Array;
+  const max = isByte ? 255 : 1;
+  for (let i = 0; i < a.length; i++) {
+    const v = (a[i] / max) * mul + lift;
+    a[i] = Math.min(1, v) * max;
+  }
+  c.needsUpdate = true;
+}
+
+interface Loaded {
+  scene: THREE.Group;
+  fitScale: number;
+}
+
+function useReconScene(): Loaded | null {
+  const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [handle] = useState(() => delayRender("load-scene-glb"));
 
   useEffect(() => {
@@ -29,31 +48,39 @@ function useReconScene() {
       staticFile("scene.glb"),
       (gltf) => {
         const root = gltf.scene;
-        // Colored points; brighten the frustum meshes to teal-ish.
         root.traverse((o) => {
-          const any = o as unknown as { isPoints?: boolean; isMesh?: boolean; material?: THREE.Material };
-          if (any.isPoints) {
+          const any = o as unknown as {
+            isPoints?: boolean;
+            isMesh?: boolean;
+            material?: THREE.Material;
+            geometry?: THREE.BufferGeometry;
+          };
+          if (any.isPoints && any.geometry) {
+            boostColors(any.geometry, 2.1, 0.16);
             any.material = new THREE.PointsMaterial({
-              size: 1.7, // pixels (sizeAttenuation off → constant, clearly visible)
+              size: 2.6, // px (constant — sizeAttenuation off)
               vertexColors: true,
               sizeAttenuation: false,
               transparent: true,
-              opacity: 1,
+              opacity: 0.98,
+              depthWrite: false,
             });
           } else if (any.isMesh) {
+            // Camera frustums → glowing teal wireframe.
             any.material = new THREE.MeshBasicMaterial({
               color: new THREE.Color(palette.accent),
               wireframe: true,
               transparent: true,
-              opacity: 0.45,
+              opacity: 0.5,
+              depthWrite: false,
             });
           }
         });
-        // Centre the cloud at the origin so it orbits cleanly.
-        const box = new THREE.Box3().setFromObject(root);
-        const center = box.getCenter(new THREE.Vector3());
-        root.position.sub(center);
-        setScene(root);
+        // Centre on the bounding sphere and auto-fit so it always frames well.
+        const sphere = new THREE.Box3().setFromObject(root).getBoundingSphere(new THREE.Sphere());
+        root.position.sub(sphere.center);
+        const fitScale = sphere.radius > 0 ? 1.18 / sphere.radius : 1;
+        setLoaded({ scene: root, fitScale });
         continueRender(handle);
       },
       undefined,
@@ -62,18 +89,17 @@ function useReconScene() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return scene;
+  return loaded;
 }
 
 const ReconModel: React.FC<{ frame: number; fps: number }> = ({ frame, fps }) => {
-  const scene = useReconScene();
-  // Slow orbit + a gentle settle-in scale.
+  const loaded = useReconScene();
   const spin = -0.5 + (frame / fps) * 0.42; // rad — slow orbit, starts slightly off-axis
-  const grow = interpolate(frame, [0, 30], [0.85, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  if (!scene) return null;
+  const grow = interpolate(frame, [0, 30], [0.82, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  if (!loaded) return null;
   return (
-    <group rotation={[0.34, spin, 0]} scale={grow * 5.2}>
-      <primitive object={scene} />
+    <group rotation={[0.42, spin, 0]} scale={loaded.fitScale * grow}>
+      <primitive object={loaded.scene} />
     </group>
   );
 };

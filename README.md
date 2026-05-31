@@ -1,4 +1,6 @@
-# OpenEyes
+<p align="center">
+  <img src="media/openeyes-logo.png" alt="OpenEyes" width="540" />
+</p>
 
 <p align="center">
   <a href="media/openeyes-demo.mp4">

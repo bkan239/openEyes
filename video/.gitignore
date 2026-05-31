@@ -3,3 +3,7 @@ node_modules/
 out/
 .remotion/
 *.log
+
+# Local copy of the recon GLB (canonical copy lives in services/recon3d/viewer/).
+# Remotion bundler 404s on a file symlink, so we copy it in locally for rendering.
+public/scene.glb

@@ -50,6 +50,9 @@ ffmpeg -y -i ../media/openeyes-demo.mp4 -i /tmp/pal.png -lavfi "fps=11,scale=760
   via `@remotion/three` + three.js and orbits the colored point cloud. Headless
   Chromium needs the ANGLE GL backend, so render with `--gl angle`
   (`remotion.config.ts` also sets `setChromiumOpenGlRenderer("angle")`).
+  The GLB is copied into `public/` automatically by the `assets` script (a
+  `pre*` hook on studio/render/still) from its canonical location
+  `services/recon3d/viewer/scene.glb` — so it is **not** duplicated in git.
 - **Design tokens** (`src/theme.ts`) copied from `angles/src/styles/global.css`
   — same warm-ink palette, single teal accent, cream subject highlight.
 - **Fonts** (`src/lib/fonts.ts`) load Newsreader / Hanken Grotesk / IBM Plex Mono

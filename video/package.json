@@ -7,6 +7,10 @@
     "node": ">=18"
   },
   "scripts": {
+    "assets": "node -e \"require('fs').copyFileSync('../services/recon3d/viewer/scene.glb','public/scene.glb')\"",
+    "prestudio": "npm run assets",
+    "prerender": "npm run assets",
+    "prestill": "npm run assets",
     "studio": "remotion studio",
     "render": "remotion render OpenEyesPromo out/openeyes-demo.mp4 --codec h264 --crf 26 --concurrency 2 --gl angle",
     "still": "remotion still OpenEyesPromo ../media/openeyes-poster.png --frame 560 --gl angle",
