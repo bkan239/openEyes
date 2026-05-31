@@ -34,6 +34,16 @@ HERE = Path(__file__).resolve().parent
 OUT = HERE / "outputs"
 OUT.mkdir(exist_ok=True)
 
+# Self-contained capture store: phones upload here (accumulate), presenter triggers
+# a reconstruction of the whole folder. No dependency on any external app.
+CAPTURES = HERE / "captures"
+CAPTURES.mkdir(exist_ok=True)
+MEDIA_EXTS = (".jpg", ".jpeg", ".png", ".heic", ".heif", ".webp")
+
+
+def _captures_count() -> int:
+    return sum(1 for p in CAPTURES.iterdir() if p.suffix.lower() in MEDIA_EXTS)
+
 # The app's captures zip — pre-baked so the live trigger needs NO typing.
 # Override with:  CAPTURES_URL=... uvicorn app:app ...
 # Freshness via the export's ?windowMinutes= param (only the last N minutes of
@@ -297,3 +307,114 @@ def local(dir: str):
 def from_url(url: str):
     """Same as /go but with an explicit zip URL (?url=...)."""
     return _reconstruct_from_url(url)
+
+
+# ───────────────────────── Self-contained QR capture ─────────────────────────
+
+COLLECT_PAGE = """<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenEyes — add your photos</title>
+<style>
+ :root{color-scheme:dark}
+ body{margin:0;background:#0a0c10;color:#e6e9ef;font:16px/1.5 system-ui,sans-serif;
+   display:flex;flex-direction:column;align-items:center;padding:24px;gap:14px}
+ h1{font-size:20px;margin:.2em 0;text-align:center}p{color:#8b94a7;margin:0;text-align:center}
+ label,button{border-radius:12px;font-size:16px;font-weight:600;cursor:pointer}
+ label{background:#1d2533;border:1px solid #2c3548;padding:18px 22px;color:#e6e9ef}
+ input[type=file]{display:none}
+ #build{background:#6FBDB0;color:#11151c;border:0;padding:18px 24px;width:100%;max-width:520px}
+ #clear{background:transparent;border:1px solid #2c3548;color:#8b94a7;padding:8px 14px;font-size:13px}
+ #count{font-size:34px;font-weight:700}#status{color:#8b94a7;min-height:1.4em}
+ video{width:100%;max-width:520px;border-radius:12px;background:#000}
+ .wrap{width:100%;max-width:520px;display:flex;flex-direction:column;gap:14px;align-items:center}
+</style></head><body>
+<h1>OpenEyes — add your photo to the scene</h1>
+<p>Take a few photos of the scene from where you're standing.</p>
+<div class="wrap">
+  <label>📷 Add photo(s)<input id="f" type="file" accept="image/*" multiple capture="environment"></label>
+  <div><span id="count">0</span> <span style="color:#8b94a7">photos collected</span></div>
+  <div id="status"></div>
+  <hr style="width:100%;border-color:#1d2533">
+  <button id="build">▶ Reconstruct the scene</button>
+  <button id="clear">↺ Clear all</button>
+  <video id="vid" controls autoplay loop muted playsinline style="display:none"></video>
+</div>
+<script>
+ const f=document.getElementById('f'),cnt=document.getElementById('count'),
+       st=document.getElementById('status'),build=document.getElementById('build'),
+       clr=document.getElementById('clear'),vid=document.getElementById('vid');
+ async function refresh(){ try{ const j=await (await fetch('/count')).json(); cnt.textContent=j.count; build.textContent='▶ Reconstruct the scene ('+j.count+')'; }catch(e){} }
+ setInterval(refresh, 2000); refresh();
+ f.onchange=async()=>{
+   if(!f.files.length) return;
+   st.textContent='Uploading '+f.files.length+' photo(s)…';
+   const fd=new FormData(); for(const file of f.files) fd.append('images',file);
+   try{ const j=await (await fetch('/upload',{method:'POST',body:fd})).json();
+        cnt.textContent=j.count; st.textContent='Added — '+j.count+' photos total. Thanks!'; f.value=''; }
+   catch(e){ st.textContent='Upload error: '+e; }
+   refresh();
+ };
+ build.onclick=async()=>{
+   build.disabled=true; st.textContent='Reconstructing… (a few seconds)';
+   try{ const j=await (await fetch('/build')).json();
+        if(j.video){ vid.src=j.video+'?t='+Date.now(); vid.style.display='block'; st.textContent='Done in '+j.seconds+'s.'; }
+        else st.textContent='Failed: '+(j.error||'no video'); }
+   catch(e){ st.textContent='Error: '+e; }
+   build.disabled=false;
+ };
+ clr.onclick=async()=>{ st.textContent='Clearing…'; try{ const j=await (await fetch('/clear')).json(); cnt.textContent=j.count; st.textContent='Cleared.'; }catch(e){} refresh(); };
+</script></body></html>"""
+
+
+@app.get("/collect", response_class=HTMLResponse)
+def collect() -> str:
+    return COLLECT_PAGE
+
+
+@app.get("/count")
+def count():
+    return {"count": _captures_count()}
+
+
+@app.post("/upload")
+async def upload(images: list[UploadFile] = File(...)):
+    n = 0
+    for up in images:
+        ext = Path(up.filename or "img.jpg").suffix.lower() or ".jpg"
+        name = f"{int(time.time() * 1000)}_{n}{ext}"
+        (CAPTURES / name).write_bytes(await up.read())
+        n += 1
+    total = _captures_count()
+    log(f"/upload: +{n} photos -> {total} in captures/")
+    return JSONResponse({"added": n, "count": total})
+
+
+@app.get("/clear")
+def clear():
+    for p in list(CAPTURES.iterdir()):
+        try:
+            p.unlink()
+        except Exception:
+            pass
+    log("captures cleared")
+    return {"count": _captures_count()}
+
+
+@app.get("/build")
+def build():
+    """Reconstruct ONE hero fly-through from ALL collected captures (warm model)."""
+    if _captures_count() == 0:
+        return JSONResponse({"error": "no captures yet"}, status_code=400)
+    stamp = "collect_" + time.strftime("%Y%m%d_%H%M%S")
+    t = time.time()
+    try:
+        with _infer_lock:
+            log(f"build hero from {_captures_count()} captures -> {stamp}")
+            hero = ar.reconstruct_hero(get_model(), CAPTURES, OUT / stamp)
+    except Exception as e:
+        log(f"✗ build failed: {e}\n{traceback.format_exc()}")
+        return JSONResponse({"error": str(e)}, status_code=500)
+    shutil.copy(hero, OUT / "latest.mp4")
+    secs = round(time.time() - t, 1)
+    log(f"✅ build {stamp} in {secs}s")
+    return JSONResponse({"video": f"/outputs/{stamp}/{hero.name}", "seconds": secs})

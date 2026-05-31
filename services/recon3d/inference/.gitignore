@@ -5,6 +5,7 @@ AnySplat/
 # Live I/O + generated assets
 uploads/
 outputs/
+captures/
 latest.mp4
 *.ply
 
