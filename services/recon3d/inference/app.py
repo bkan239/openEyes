@@ -21,6 +21,7 @@ import shutil
 import threading
 import time
 import traceback
+import urllib.request
 from pathlib import Path
 
 from fastapi import FastAPI, File, UploadFile
@@ -38,6 +39,12 @@ OUT.mkdir(exist_ok=True)
 CAPTURES_URL = os.environ.get(
     "CAPTURES_URL", "https://open-eyes-three.vercel.app/captures/export/zip"
 )
+# Endpoint that CLEARS the app's capture store so each demo starts fresh. Confirm
+# the real path/method with the teammate; override via env if different.
+RESET_URL = os.environ.get(
+    "CAPTURES_RESET_URL", "https://open-eyes-three.vercel.app/captures/reset"
+)
+RESET_METHOD = os.environ.get("CAPTURES_RESET_METHOD", "POST")
 
 
 def log(msg: str) -> None:
@@ -70,6 +77,21 @@ log("server starting — warming model in the background")
 threading.Thread(target=get_model, daemon=True).start()
 
 
+def _reset_captures() -> bool:
+    """Clear the app's capture store (called after we've fetched the photos, so the
+    next group starts fresh). No-op if RESET_URL is empty; never breaks the flow."""
+    if not RESET_URL:
+        return False
+    try:
+        req = urllib.request.Request(RESET_URL, data=b"", method=RESET_METHOD)
+        with urllib.request.urlopen(req, timeout=10) as r:
+            log(f"reset captures -> {RESET_URL} [{r.status}]")
+        return True
+    except Exception as e:
+        log(f"reset captures failed ({e})")
+        return False
+
+
 PAGE = """<!doctype html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>OpenEyes — see the scene in 3D</title>
@@ -89,6 +111,7 @@ PAGE = """<!doctype html><html lang="en"><head>
 <p>Take or pick a few photos of the scene from different spots. We rebuild it in 3D — live.</p>
 <div class="wrap">
   <button id="goLatest" style="background:#6FBDB0;color:#11151c;font-size:18px;padding:18px 24px;width:100%">▶ Reconstruct latest captures</button>
+  <button id="reset" style="background:transparent;border:1px solid #2c3548;color:#8b94a7;font-size:13px;padding:8px 14px">↺ Reset captures</button>
   <div id="status"></div>
   <div id="results" class="wrap"></div>
   <details style="width:100%;color:#8b94a7;font-size:13px">
@@ -105,7 +128,11 @@ PAGE = """<!doctype html><html lang="en"><head>
 <script>
  const f=document.getElementById('f'),go=document.getElementById('go'),url=document.getElementById('url'),
        goUrl=document.getElementById('goUrl'),goLatest=document.getElementById('goLatest'),
+       reset=document.getElementById('reset'),
        st=document.getElementById('status'),res=document.getElementById('results');
+ reset.onclick=async()=>{ st.textContent='Resetting captures…';
+   try{ const j=await (await fetch('/reset')).json(); st.textContent = j.reset ? 'Captures reset.' : 'Reset endpoint not reachable (set CAPTURES_RESET_URL).'; }
+   catch(e){ st.textContent='Error: '+e; } };
  function showVideos(j){
    const vids=j.videos||(j.video?[j.video]:[]);
    if(!vids.length){ st.textContent='Failed: '+(j.error||'no video produced'); return; }
@@ -200,6 +227,8 @@ def _reconstruct_from_url(url: str):
         log(f"✗ fetch failed: {e}")
         return JSONResponse({"error": f"fetch failed: {e}"}, status_code=400)
 
+    _reset_captures()   # we have the photos now → clear the store for the next group
+
     t = time.time()
     try:
         model = get_model()
@@ -223,6 +252,13 @@ def go():
     No typing — open /go in a browser, click the page button, or:  curl <host>:8008/go
     """
     return _reconstruct_from_url(CAPTURES_URL)
+
+
+@app.get("/reset")
+def reset():
+    """Manually clear the app's capture store (also done automatically inside /go)."""
+    ok = _reset_captures()
+    return {"reset": ok, "url": RESET_URL or None}
 
 
 @app.get("/from_url")
