@@ -36,14 +36,17 @@ OUT.mkdir(exist_ok=True)
 
 # The app's captures zip — pre-baked so the live trigger needs NO typing.
 # Override with:  CAPTURES_URL=... uvicorn app:app ...
-CAPTURES_URL = os.environ.get(
-    "CAPTURES_URL", "https://open-eyes-three.vercel.app/captures/export/zip"
-)
-# Endpoint that CLEARS the app's capture store so each demo starts fresh. Confirm
-# the real path/method with the teammate; override via env if different.
-RESET_URL = os.environ.get(
-    "CAPTURES_RESET_URL", "https://open-eyes-three.vercel.app/captures/reset"
-)
+# Freshness via the export's ?windowMinutes= param (only the last N minutes of
+# captures), so we don't need a separate reset endpoint.
+_CAPTURES_BASE = os.environ.get("CAPTURES_URL", "https://open-eyes-three.vercel.app/captures/export/zip")
+_WINDOW_MIN = os.environ.get("CAPTURES_WINDOW_MIN", "30")
+if "windowMinutes=" in _CAPTURES_BASE:
+    CAPTURES_URL = _CAPTURES_BASE
+else:
+    CAPTURES_URL = f"{_CAPTURES_BASE}{'&' if '?' in _CAPTURES_BASE else '?'}windowMinutes={_WINDOW_MIN}"
+
+# Optional explicit reset endpoint (OFF by default — windowMinutes handles freshness).
+RESET_URL = os.environ.get("CAPTURES_RESET_URL", "")
 RESET_METHOD = os.environ.get("CAPTURES_RESET_METHOD", "POST")
 
 
