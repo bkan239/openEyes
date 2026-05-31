@@ -23,6 +23,10 @@ from pathlib import Path
 if Path("/workspace").is_dir():
     os.environ.setdefault("HF_HOME", "/workspace/hf-cache")
 
+# Some AnySplat / 3D-lib paths recurse past Python's default 1000 → RecursionError
+# ("maximum recursion depth exceeded"). Raise it generously.
+sys.setrecursionlimit(10_000)
+
 HERE = Path(__file__).resolve().parent
 ANYSPLAT = HERE / "AnySplat"
 if str(ANYSPLAT) not in sys.path:
