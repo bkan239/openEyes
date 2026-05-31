@@ -57,6 +57,7 @@ struct MapEventPin: Identifiable, Hashable {
     let latitude: Double
     let longitude: Double
     let date: Date
+    var articleCount: Int = 0
 
     var coordinate: CLLocationCoordinate2D {
         CLLocationCoordinate2D(latitude: latitude, longitude: longitude)

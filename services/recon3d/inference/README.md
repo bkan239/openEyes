@@ -18,7 +18,26 @@ bash services/recon3d/inference/setup.sh
 ```
 Clones AnySplat, builds the isolated venv, installs deps, prints a CUDA check.
 
-## Run
+## Live demo: fetch the app's captures → one hero fly-through
+
+The main app collects everyone's photos and serves them as a **zip at a plain URL**.
+On-demand, one command fetches + unzips + reconstructs **one clean 1080p fly-through**:
+
+```bash
+source .venv-anysplat/bin/activate
+python live.py --url "https://.../captures.zip"
+# -> outputs/live/hero.mp4  and  outputs/latest.mp4
+```
+Show it big (full-screen, looping):
+```bash
+python -m http.server 8080      # then open http://localhost:8080/show.html
+```
+`live.py` finds images recursively (nested zip OK), auto-converts HEIC, renders a
+single smooth sweep through the recovered poses (novel in-between views = visible
+3D), and upscales to 1080p with ffmpeg. It loads the model fresh each run (~1–2 min);
+for instant repeated runs keep the warm server (below) up instead.
+
+## Run (manual / testing)
 
 **One-shot (test / A-B vs the optimization pipeline):**
 ```bash
@@ -28,15 +47,23 @@ python run_once.py --images-dir ../data/easy_data/pics --out outputs/room
 # compare outputs/room/*.mp4  vs  ../roomtest/flythrough.mp4 (Splatfacto)
 ```
 
-**Warm server (the live demo):**
+**Warm HTTP server — the live QR demo (recommended):**
+```bash
+uv pip install fastapi "uvicorn[standard]" python-multipart   # once
+uvicorn app:app --host 0.0.0.0 --port 8008
+```
+Expose port **8008** on RunPod (HTTP service) → point a QR code at the proxy URL
+`https://<POD_ID>-8008.proxy.runpod.net`. The page is phone-friendly (camera
+capture + multi-select): audience picks a few photos → fly-through comes back in
+seconds. Model loads once at boot (warmed in the background).
+
+**Warm watch-folder server (simpler alternative):**
 ```bash
 python serve.py
-# drop photos into inference/uploads/ (drag in VS Code / AirDrop / scp / QR upload)
-# -> outputs/<timestamp>/flythrough.mp4  and  outputs/latest.mp4
+# drop photos into inference/uploads/ (drag / AirDrop / scp) -> outputs/latest.mp4
 ```
-The model loads once; each new batch reconstructs in seconds. Serve `outputs/`
-(`python -m http.server 8080`) to show the videos, or open the `.ply` in
-[superspl.at/view](https://superspl.at/view) for an interactive splat.
+Either way the model stays resident, so each batch reconstructs in seconds. For an
+interactive splat, open the exported `.ply` in [superspl.at/view](https://superspl.at/view).
 
 ## Notes / gotchas
 - **API:** `anysplat_recon.py` follows the AnySplat README; if imports/signatures

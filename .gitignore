@@ -31,6 +31,7 @@ venv/
 # Env & secrets
 .env
 .env.*
+.env*
 !.env.example
 
 # Logs
@@ -56,3 +57,11 @@ skills-lock.json
 /tmp-media/
 
 ~$OpenEyes-Pitch-Deck (16).pptx
+
+# OpenEyes video (Remotion) — keep source + media deliverables, ignore build
+video/node_modules/
+video/out/
+video/public/scene.glb
+video/public/clips
+video/public/thumbs
+# (media/*.mp4 etc. are committed deliverables — do NOT ignore)

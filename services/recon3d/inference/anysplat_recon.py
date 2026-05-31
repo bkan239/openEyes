@@ -12,9 +12,16 @@ three marked lines to match it.
 
 from __future__ import annotations
 
+import os
 import sys
 import time
 from pathlib import Path
+
+# Cache HF weights (AnySplat + its VGGT-1B backbone, ~10 GB) on the PERSISTENT
+# /workspace volume, not the small ephemeral container disk (which runs out and
+# is wiped on pod restart). Override by exporting HF_HOME yourself.
+if Path("/workspace").is_dir():
+    os.environ.setdefault("HF_HOME", "/workspace/hf-cache")
 
 HERE = Path(__file__).resolve().parent
 ANYSPLAT = HERE / "AnySplat"
@@ -25,8 +32,9 @@ IMG_EXTS = (".jpg", ".jpeg", ".png")
 
 
 def _convert_heic(image_dir: Path) -> None:
-    """iPhone HEIC/HEIF -> JPG (idempotent; no-op if none)."""
-    heics = [p for p in image_dir.iterdir() if p.suffix.lower() in (".heic", ".heif")]
+    """iPhone HEIC/HEIF -> JPG (idempotent; no-op if none). Recursive — a fetched
+    zip may nest the photos in a subfolder."""
+    heics = [p for p in image_dir.rglob("*") if p.suffix.lower() in (".heic", ".heif")]
     if not heics:
         return
     import pillow_heif
@@ -41,11 +49,28 @@ def _convert_heic(image_dir: Path) -> None:
     print(f"[anysplat] converted {n} HEIC -> JPG")
 
 
+def fetch_and_unzip(url: str, dest_dir) -> Path:
+    """Download a .zip from a plain URL and extract it into dest_dir. Returns dest_dir."""
+    import urllib.request
+    import zipfile
+
+    dest_dir = Path(dest_dir)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    zip_path = dest_dir / "captures.zip"
+    print(f"[anysplat] downloading {url}")
+    urllib.request.urlretrieve(url, zip_path)
+    print(f"[anysplat] unzipping -> {dest_dir}")
+    with zipfile.ZipFile(zip_path) as z:
+        z.extractall(dest_dir)
+    return dest_dir
+
+
 def _list_images(image_dir: Path) -> list[str]:
+    """All images under image_dir, recursively (handles nested zip layouts)."""
     paths: set[str] = set()
     for e in IMG_EXTS:
-        paths.update(str(p) for p in image_dir.glob(f"*{e}"))
-        paths.update(str(p) for p in image_dir.glob(f"*{e.upper()}"))
+        paths.update(str(p) for p in image_dir.rglob(f"*{e}"))
+        paths.update(str(p) for p in image_dir.rglob(f"*{e.upper()}"))
     return sorted(paths)
 
 
@@ -63,8 +88,41 @@ def load_model(device: str = "cuda"):
     return model
 
 
-def reconstruct(model, image_dir, out_dir, device: str = "cuda"):
-    """images -> Gaussians + poses -> fly-through video (+ .ply). Returns out dir."""
+def _trajectories(extrinsic, intrinsic, multi: bool):
+    """Trajectory variants built from the predicted input poses.
+
+    save_interpolated_video interpolates THROUGH whatever pose sequence we pass
+    (with `t` = interpolated frames between consecutive views), so different
+    orderings/speeds give visibly different fly-throughs. All are honest — the
+    camera only ever passes through/among the witnessed viewpoints.
+    """
+    import torch
+
+    ax = 1 if extrinsic.dim() == 4 else 0          # the "view" axis
+    variants = [("flythrough", extrinsic, intrinsic, 12),   # forward (canonical)
+                ("slow", extrinsic, intrinsic, 28)]         # same path, slower/smoother
+    if multi:
+        try:
+            er, ir = extrinsic.flip(ax), intrinsic.flip(ax)
+            variants.append(("reverse", er, ir, 12))
+            variants.append(("pingpong",
+                             torch.cat([extrinsic, er], ax),
+                             torch.cat([intrinsic, ir], ax), 10))
+        except Exception as e:
+            print(f"[anysplat] reverse/pingpong variants skipped ({e})")
+    return variants
+
+
+def reconstruct(model, image_dir, out_dir, device: str = "cuda", trajectories: bool = True):
+    """images -> Gaussians + poses -> RGB fly-through video(s). Returns list of mp4 paths.
+
+    Renders the **RGB** video (rgb.mp4), not the depth map, and — when
+    ``trajectories`` is set — several trajectory variants (forward / slow /
+    reverse / ping-pong), each as ``<out_dir>/<name>.mp4``. `flythrough.mp4` is
+    the canonical forward one.
+    """
+    import shutil
+
     import torch
     from src.utils.image import process_image                # <-- verify vs demo_gradio.py
     from src.misc.image_io import save_interpolated_video    # <-- verify vs demo_gradio.py
@@ -83,20 +141,93 @@ def reconstruct(model, image_dir, out_dir, device: str = "cuda"):
     imgs = imgs.to("cuda" if torch.cuda.is_available() else device)
     b, k, _, h, w = imgs.shape
 
-    t = time.time()
+    t0 = time.time()
     with torch.inference_mode():
-        gaussians, pose = model.inference((imgs + 1) * 0.5)   # forward pass
+        gaussians, pose = model.inference((imgs + 1) * 0.5)   # ONE forward pass
     extrinsic, intrinsic = pose["extrinsic"], pose["intrinsic"]
+    print(f"[anysplat] inference: {k} imgs in {time.time() - t0:.1f}s; rendering trajectories...")
 
-    # Render a fly-through interpolated through the recovered cameras.
-    save_interpolated_video(extrinsic, intrinsic, b, h, w, gaussians, str(out_dir), model.decoder)
+    videos: list[Path] = []
+    for name, extr, intr, t in _trajectories(extrinsic, intrinsic, trajectories):
+        sub = out_dir / f"_{name}"
+        sub.mkdir(parents=True, exist_ok=True)
+        try:
+            # writes rgb.mp4 (color) + depth.mp4 into `sub`
+            save_interpolated_video(extr, intr, b, h, w, gaussians, str(sub), model.decoder, t=t)
+            rgb = sub / "rgb.mp4"
+            if rgb.exists():
+                dst = out_dir / f"{name}.mp4"      # the RGB render, not depth
+                shutil.copy(rgb, dst)
+                videos.append(dst)
+                print(f"[anysplat]   ✓ {name}.mp4")
+            else:
+                print(f"[anysplat]   ✗ {name}: no rgb.mp4 in {sub}")
+        except Exception as e:
+            print(f"[anysplat]   ✗ {name} failed: {e}")
 
-    # Best-effort export of the raw Gaussians for SuperSplat / interactive viewing.
+    # Best-effort raw-Gaussian export for SuperSplat / interactive viewing.
     try:
         from src.misc.image_io import export_ply  # name may differ; optional
         export_ply(gaussians, str(out_dir / "gaussians.ply"))
     except Exception:
         pass
 
-    print(f"[anysplat] {k} imgs -> {out_dir} in {time.time() - t:.1f}s")
-    return out_dir
+    print(f"[anysplat] {k} imgs -> {len(videos)} videos in {time.time() - t0:.1f}s -> {out_dir}")
+    return videos
+
+
+def reconstruct_hero(model, image_dir, out_dir, device: str = "cuda",
+                     t: int = 24, height: int = 1080) -> Path:
+    """ONE clean, big hero fly-through (for the live demo).
+
+    Renders a single smooth forward sweep through the predicted poses (the
+    in-between frames are NOVEL views → visible parallax = clearly a 3D
+    reconstruction), then upscales the RGB render to ``height`` (default 1080p)
+    with ffmpeg for a crisp, large video. Returns the hero mp4 path.
+    """
+    import shutil
+    import subprocess
+
+    import torch
+    from src.utils.image import process_image
+    from src.misc.image_io import save_interpolated_video
+
+    image_dir = Path(image_dir)
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    _convert_heic(image_dir)
+    paths = _list_images(image_dir)
+    if not paths:
+        raise SystemExit(f"[anysplat] no images found under {image_dir}")
+
+    imgs = torch.stack([process_image(p) for p in paths], dim=0).unsqueeze(0)
+    imgs = imgs.to("cuda" if torch.cuda.is_available() else device)
+    b, k, _, h, w = imgs.shape
+
+    t0 = time.time()
+    with torch.inference_mode():
+        gaussians, pose = model.inference((imgs + 1) * 0.5)
+    extrinsic, intrinsic = pose["extrinsic"], pose["intrinsic"]
+    print(f"[anysplat] hero: inference {k} imgs in {time.time() - t0:.1f}s; rendering sweep (t={t})...")
+
+    tmp = out_dir / "_hero"
+    tmp.mkdir(parents=True, exist_ok=True)
+    save_interpolated_video(extrinsic, intrinsic, b, h, w, gaussians, str(tmp), model.decoder, t=t)
+    rgb = tmp / "rgb.mp4"
+    if not rgb.exists():
+        raise SystemExit(f"[anysplat] no rgb.mp4 produced in {tmp}")
+
+    hero = out_dir / "hero.mp4"
+    try:                          # upscale to a clean, big 1080p video
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", str(rgb),
+             "-vf", f"scale=-2:{height}:flags=lanczos",
+             "-c:v", "libx264", "-crf", "16", "-pix_fmt", "yuv420p", str(hero)],
+            check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception as e:
+        print(f"[anysplat] ffmpeg upscale skipped ({e}); using native render")
+        shutil.copy(rgb, hero)
+
+    print(f"[anysplat] hero -> {hero} in {time.time() - t0:.1f}s ({k} imgs, {height}p)")
+    return hero

@@ -36,7 +36,7 @@ def get_news_cluster(cluster_id: str, include_articles: bool = False) -> NewsClu
     return cluster
 
 
-def list_news_clusters(limit: int = 50, min_articles: int = 2) -> list[NewsCluster]:
+def list_news_clusters(limit: int = 50, min_articles: int = 1) -> list[NewsCluster]:
     # Fetch a wider window, then filter out weak clusters.
     # Map clients typically pass min_articles=3 for corroborated stories.
     items = scan_meta_with_pk_prefix("NEWS#CLUSTER#", limit=max(limit * 4, limit))
@@ -82,6 +82,18 @@ def replace_cluster_articles(cluster_id: str, articles: list[NewsArticle]) -> No
     delete_cluster_articles(cluster_id)
     for article in articles:
         put_news_article(article)
+
+
+def clear_all_news_clusters(limit: int = 5000) -> None:
+    """Delete all news clusters plus their per-article index entries."""
+    items = scan_meta_with_pk_prefix("NEWS#CLUSTER#", limit=limit)
+    for item in items:
+        pk = str(item.get("pk", ""))
+        if not pk.startswith("NEWS#CLUSTER#"):
+            continue
+        cluster_id = pk.removeprefix("NEWS#CLUSTER#")
+        delete_cluster_articles(cluster_id)
+        delete_item(pk, "META")
 
 
 def find_cluster_by_article_ids(article_ids: list[str]) -> str | None:

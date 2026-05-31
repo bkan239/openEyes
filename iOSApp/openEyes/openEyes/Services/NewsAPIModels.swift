@@ -1,12 +1,12 @@
 import Foundation
 
-struct APIGeoPoint: Decodable {
+struct APIGeoPoint: Codable {
     let lat: Double
     let lng: Double
     let label: String?
 }
 
-struct APINewsArticle: Decodable {
+struct APINewsArticle: Codable {
     let id: String
     let clusterId: String
     let title: String
@@ -17,7 +17,7 @@ struct APINewsArticle: Decodable {
     let imageUrl: String?
 }
 
-struct APINewsCluster: Decodable {
+struct APINewsCluster: Codable {
     let id: String
     let title: String
     let summary: String

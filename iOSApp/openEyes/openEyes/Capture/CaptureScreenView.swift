@@ -1,6 +1,11 @@
 import Combine
 import SwiftUI
 
+private enum CaptureCameraLayout {
+    /// Lifts shutter row above the tab bar compositing layer.
+    static let controlsBottomPadding: CGFloat = 44
+}
+
 struct CaptureScreenView: View {
     @ObservedObject var draftStore: CaptureDraftStore
     @StateObject private var camera = CaptureCameraController()
@@ -9,13 +14,10 @@ struct CaptureScreenView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let topInset = geometry.safeAreaInsets.top
             ZStack(alignment: .bottom) {
                 CaptureCameraPanel(
                     camera: camera,
                     lastCapture: draftStore.drafts.first,
-                    previewHeight: geometry.size.height,
-                    topInset: topInset,
                     onOpenAlbum: { isAlbumPresented = true }
                 )
                 .frame(width: geometry.size.width, height: geometry.size.height)
@@ -50,8 +52,6 @@ struct CaptureScreenView: View {
 struct CaptureCameraPanel: View {
     @ObservedObject var camera: CaptureCameraController
     let lastCapture: CaptureUploadDraft?
-    let previewHeight: CGFloat
-    let topInset: CGFloat
     let onOpenAlbum: () -> Void
 
     @State private var deviceOrientation: UIDeviceOrientation = UIDevice.current.orientation
@@ -65,6 +65,7 @@ struct CaptureCameraPanel: View {
     var body: some View {
         ZStack {
             previewSurface
+                .ignoresSafeArea(edges: [.top, .horizontal, .bottom])
 
             LinearGradient(
                 colors: [
@@ -81,6 +82,7 @@ struct CaptureCameraPanel: View {
         }
         .overlay(alignment: .bottom) {
             bottomOverlay
+                .padding(.bottom, CaptureCameraLayout.controlsBottomPadding)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Ink.ink)
@@ -143,10 +145,7 @@ struct CaptureCameraPanel: View {
                 }
             }
         }
-        .frame(height: previewHeight + topInset + 36)
-        .scaleEffect(1.04)
-        .offset(y: -topInset + 12)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
     }
 
@@ -231,7 +230,6 @@ struct CaptureCameraPanel: View {
                 .frame(width: 72, alignment: .trailing)
             }
             .padding(.horizontal, 16)
-            .padding(.bottom, 32)
         }
     }
 
