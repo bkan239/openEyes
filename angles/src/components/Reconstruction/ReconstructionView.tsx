@@ -7,7 +7,7 @@ import { useState, type CSSProperties } from "react";
  * falls back to the bundled hero render. Set LIVE_URL to the RunPod proxy for the
  * live demo; leave it "" to just play the bundled file. Plain <video> needs no CORS.
  */
-const LIVE_URL = ""; // e.g. "https://<POD_ID>-8008.proxy.runpod.net/outputs/latest.mp4"
+const LIVE_URL = "https://pmozvqjxqt6p10-8008.proxy.runpod.net/outputs/latest.mp4";
 const FALLBACK_URL = "/recon/hero.mp4";
 const SOURCES = [LIVE_URL, FALLBACK_URL].filter(Boolean);
 
